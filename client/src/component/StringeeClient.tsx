@@ -1,4 +1,3 @@
-import axios from "axios";
 import {
   useState,
   useEffect,
@@ -14,56 +13,14 @@ import {
   IconCheck,
   IconTrash,
   IconAlert,
-} from "../assets/svgComponent";
+} from "@/component/icons/svgComponent";
 import type {
   TokenPayload,
-  SavedToken,
   SCCOAction,
   RecordFormat,
-} from "../types/ITypes";
-
-// ── Storage helper ─────────────────────────────────────────
-const STORAGE_KEY = "stringee_token";
-
-const storage = {
-  get(): SavedToken | null {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  },
-  set(data: SavedToken): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  },
-  remove(): void {
-    localStorage.removeItem(STORAGE_KEY);
-  },
-};
-
-// ── Helpers ────────────────────────────────────────────────
-function decodeToken(token: string): TokenPayload | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    return JSON.parse(atob(parts[1]));
-  } catch {
-    return null;
-  }
-}
-
-function formatTime(unix: number | undefined): string {
-  if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
+} from "@/api/types/ITypes";
+import { decodeToken, formatTime, storage } from "@/utils/storage";
+import { getClientToken } from "@/api/stringee";
 
 // ── Main Component ─────────────────────────────────────────
 const StringeeClient: FC = () => {
@@ -91,7 +48,7 @@ const StringeeClient: FC = () => {
 
   // ── Load saved token on mount ──
   useEffect(() => {
-    const saved = storage.get();
+    const saved = storage.get(userId);
     if (!saved?.token) return;
 
     const info = decodeToken(saved.token);
@@ -104,12 +61,12 @@ const StringeeClient: FC = () => {
       setRecordStereo(saved.recordStereo ?? false);
       setCallReady(true);
     } else {
-      storage.remove();
+      storage.remove(userId);
     }
   }, []);
 
   // ── Fetch token ──
-  const fetchToken = useCallback(async (): Promise<void> => {
+  const fetchToken = useCallback(async (): Promise<string> => {
     const trimmed = userId.trim();
     if (!trimmed) {
       setError("Vui lòng nhập User ID");
@@ -120,19 +77,20 @@ const StringeeClient: FC = () => {
     setError("");
 
     try {
-      const res = await axios.post(`${serverUrl}/api/token`, { id: trimmed });
-      if (!res) throw new Error(`Server trả về ${res.status}`);
+      const token = await getClientToken(trimmed);
 
-      const data: { token: string } = await res.data;
-      if (!data.token) throw new Error("Response không chứa token");
-      console.log("Received token:", data.token);
-      const info = decodeToken(data.token);
-      setToken(data.token);
+      if (!token) throw new Error("Response không chứa token");
+      console.log("Received token:", token);
+      const info = decodeToken(token);
+
+      console.log("Decoded token info:", info);
+
+      setToken(token);
       setTokenInfo(info);
       setCallReady(true);
 
       storage.set({
-        token: data.token,
+        token: token,
         userId: trimmed,
         record,
         recordFormat,
@@ -170,7 +128,7 @@ const StringeeClient: FC = () => {
   const toggleRecord = (): void => {
     const next = !record;
     setRecord(next);
-    const saved = storage.get();
+    const saved = storage.get(userId);
     if (saved) {
       storage.set({ ...saved, record: next, recordFormat, recordStereo });
     }
