@@ -60,10 +60,10 @@ Paste `token` từ response vào https://jwt.io và kiểm tra header + payload 
 
 ### Phase 1 — Auth cơ bản
 
-| Method | Path | Mục đích |
-|---|---|---|
-| GET | `/health` | Healthcheck |
-| POST | `/api/auth/token` | Sinh client token cho SDK |
+| Method | Path              | Mục đích                  |
+| ------ | ----------------- | ------------------------- |
+| GET    | `/health`         | Healthcheck               |
+| POST   | `/api/auth/token` | Sinh client token cho SDK |
 
 Request body `/api/auth/token`:
 
@@ -76,13 +76,13 @@ Request body `/api/auth/token`:
 
 ### Module 1 — JWT lab (fault injection + inspector)
 
-| Method | Path | Mục đích |
-|---|---|---|
-| GET | `/api/auth/faults` | Liệt kê 12 fault mode với description + fix hint |
-| POST | `/api/auth/token/broken` | Sinh token cố ý lỗi theo `fault` ID |
-| POST | `/api/debug/decode-jwt` | Inspect bất kỳ JWT nào, trả findings theo severity |
-| GET | `/api/debug/cheatsheet/auth` | Bảng lỗi JWT/Auth thường gặp (symptom/cause/fix) |
-| GET | `/api/debug/cheatsheet` | Liệt kê các topic cheatsheet có sẵn |
+| Method | Path                         | Mục đích                                           |
+| ------ | ---------------------------- | -------------------------------------------------- |
+| GET    | `/api/auth/faults`           | Liệt kê 12 fault mode với description + fix hint   |
+| POST   | `/api/auth/token/broken`     | Sinh token cố ý lỗi theo `fault` ID                |
+| POST   | `/api/debug/decode-jwt`      | Inspect bất kỳ JWT nào, trả findings theo severity |
+| GET    | `/api/debug/cheatsheet/auth` | Bảng lỗi JWT/Auth thường gặp (symptom/cause/fix)   |
+| GET    | `/api/debug/cheatsheet`      | Liệt kê các topic cheatsheet có sẵn                |
 
 Request body `/api/auth/token/broken`:
 
@@ -94,7 +94,7 @@ Request body `/api/auth/token/broken`:
 }
 ```
 
-Response trả `token` cùng `expectedError` và `fixHint`. Các `fault` hỗ trợ: `no-cty`, `wrong-cty-version`, `wrong-typ`, `claim-rs256`, `expired`, `no-exp`, `wrong-secret`, `wrong-iss`, `no-jti`, `missing-userId` (client), `missing-rest-flag` (rest), `both-flags`.
+Response trả `token` cùng `expected` và `fixHint`. Các `fault` hỗ trợ: `no-cty`, `wrong-cty-version`, `wrong-typ`, `claim-rs256`, `expired`, `no-exp`, `wrong-secret`, `wrong-iss`, `no-jti`, `missing-userId` (client), `missing-rest-flag` (rest), `both-flags`.
 
 Request body `/api/debug/decode-jwt`:
 
@@ -107,7 +107,7 @@ Request body `/api/debug/decode-jwt`:
 }
 ```
 
-Response gồm `decoded` (header + payload), `findings[]` (mỗi finding có `severity`, `code`, `message`), `summary` (đếm error/warning/info), và `likelyKind` (client/rest/unknown).
+Response gồm `decoded` (header + payload), `findings[]` (mỗi finding có `severity`, `code`, `message`), `summary` (đếm /warning/info), và `likelyKind` (client/rest/unknown).
 
 ### Luồng học Module 1
 
@@ -125,7 +125,7 @@ curl -X POST http://localhost:3000/api/debug/decode-jwt \
   -H "Content-Type: application/json" \
   -d '{"token":"<token-từ-bước-2>","expectedKind":"client"}' | jq
 
-# 4. Đem token lỗi dùng với Stringee SDK thật → quan sát error thực tế
+# 4. Đem token lỗi dùng với Stringee SDK thật → quan sát  thực tế
 
 # 5. Đọc cheatsheet
 curl http://localhost:3000/api/debug/cheatsheet/auth | jq
@@ -172,12 +172,12 @@ scripts/
 
 ## Environment variables
 
-| Tên | Bắt buộc | Default | Ghi chú |
-|---|---|---|---|
-| `PORT` | Không | 3000 | |
-| `LOG_LEVEL` | Không | info | trace/debug/info/warn/error/fatal |
-| `CORS_ORIGIN` | Không | http://localhost:5173 | Comma-separated nếu nhiều |
-| `STRINGEE_API_KEY_SID` | **Có** | — | Phải bắt đầu bằng `SK` |
-| `STRINGEE_API_KEY_SECRET` | **Có** | — | Giữ bí mật, không commit |
-| `TOKEN_TTL_SECONDS` | Không | 3600 | Thời hạn client token |
-| `REST_TOKEN_TTL_SECONDS` | Không | 300 | Thời hạn REST API token (ngắn vì ephemeral) |
+| Tên                       | Bắt buộc | Default               | Ghi chú                                     |
+| ------------------------- | -------- | --------------------- | ------------------------------------------- |
+| `PORT`                    | Không    | 3000                  |                                             |
+| `LOG_LEVEL`               | Không    | info                  | trace/debug/info/warn//fatal                |
+| `CORS_ORIGIN`             | Không    | http://localhost:5173 | Comma-separated nếu nhiều                   |
+| `STRINGEE_API_KEY_SID`    | **Có**   | —                     | Phải bắt đầu bằng `SK`                      |
+| `STRINGEE_API_KEY_SECRET` | **Có**   | —                     | Giữ bí mật, không commit                    |
+| `TOKEN_TTL_SECONDS`       | Không    | 3600                  | Thời hạn client token                       |
+| `REST_TOKEN_TTL_SECONDS`  | Không    | 300                   | Thời hạn REST API token (ngắn vì ephemeral) |

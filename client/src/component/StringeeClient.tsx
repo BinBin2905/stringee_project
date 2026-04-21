@@ -2,6 +2,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type FC,
   type KeyboardEvent,
 } from "react";
@@ -18,9 +19,19 @@ import type {
   TokenPayload,
   SCCOAction,
   RecordFormat,
+  IncomingCallInfo,
 } from "@/api/types/ITypes";
 import { decodeToken, formatTime, storage } from "@/utils/storage";
-import { getClientToken } from "@/api/stringee";
+import {
+  answerCall,
+  connectToStringee,
+  disconnectFromStringee,
+  getClientToken,
+  hangupCall,
+  makeCall,
+  // rejectCall,
+  setIncomingCallHandler,
+} from "@/api/stringee";
 
 // ── Main Component ─────────────────────────────────────────
 const StringeeClient: FC = () => {
@@ -45,6 +56,14 @@ const StringeeClient: FC = () => {
   const isExpired = tokenInfo?.exp ? tokenInfo.exp * 1000 < Date.now() : false;
 
   const [callee, setCallee] = useState<string>("");
+
+  // Call state
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const [inCall, setInCall] = useState<boolean>(false);
+  const [callStatus, setCallStatus] = useState<string>("");
+  const [incomingCall, setIncomingCall] = useState<IncomingCallInfo | null>(
+    null,
+  );
 
   // ── Load saved token for this tab's active user ──
   useEffect(() => {
@@ -102,6 +121,7 @@ const StringeeClient: FC = () => {
         savedAt: Date.now(),
       });
       storage.setActiveUserId(trimmed);
+      connectToStringee(token);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Lỗi không xác định";
       setError(
@@ -124,11 +144,91 @@ const StringeeClient: FC = () => {
   // ── Clear token (this tab only) ──
   const clearToken = useCallback((): void => {
     const activeId = storage.getActiveUserId();
+    hangupCall();
+    disconnectFromStringee();
     setToken(null);
     setTokenInfo(null);
     setCallReady(false);
+    setInCall(false);
+    setCallStatus("");
+    setIncomingCall(null);
     if (activeId) storage.remove(activeId);
     storage.clearActiveUserId();
+  }, []);
+
+  const handleMakeCall = useCallback((): void => {
+    const from = userId.trim();
+    const to = callee.trim();
+    if (!from) {
+      setError("Thiếu User ID (from)");
+      return;
+    }
+    if (!to) {
+      setError("Nhập Callee ID trước khi gọi");
+      return;
+    }
+
+    try {
+      makeCall({
+        from: userId,
+        to: callee,
+        isVideo: false,
+        remoteMedia: remoteAudioRef.current,
+        onSignalingState: (state) => {
+          setCallStatus(state.reason ?? `code ${state.code}`);
+          if (state.code === 3 || state.code === 4) {
+            setInCall(false);
+          }
+        },
+        onCallResponse: (res) => {
+          console.log("Call response:", res);
+        },
+      });
+      setInCall(true);
+      setCallStatus("calling...");
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Call failed");
+    }
+  }, [userId, callee]);
+  const handleAnswer = useCallback((): void => {
+    try {
+      answerCall(true);
+      setInCall(true);
+      setIncomingCall(null);
+      setCallStatus("in call");
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Answer failed");
+    }
+  }, []);
+
+  const handleReject = useCallback((): void => {
+    answerCall(false);
+    // rejectCall();
+    setIncomingCall(null);
+    setCallStatus("rejected");
+  }, []);
+
+  // ── Hang up ──
+  const handleHangup = useCallback((): void => {
+    hangupCall();
+    setInCall(false);
+    setCallStatus("ended");
+  }, []);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      hangupCall();
+      disconnectFromStringee();
+    };
+  }, []);
+
+  useEffect(() => {
+    setIncomingCallHandler((call) => {
+      setIncomingCall(call);
+    });
   }, []);
 
   // ── Toggle record & persist ──
@@ -164,7 +264,11 @@ const StringeeClient: FC = () => {
         number: userId || "caller",
         alias: userId || "caller",
       },
-      to: { type: "external", number: target, alias: target },
+      to: {
+        type: Number.isInteger(parseInt(target)) ? "external" : "internal",
+        number: target,
+        alias: target,
+      },
       ...(record ? { peerToPeerCall: false } : {}),
       timeout: 45,
     });
@@ -449,15 +553,67 @@ const StringeeClient: FC = () => {
               </pre>
             </div>
 
-            <button
-              onClick={() =>
-                alert("makeCall() — Tích hợp StringeeCall2 SDK tại đây")
-              }
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-black py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-800"
-            >
-              <IconPhone />
-              Make Call (placeholder)
-            </button>
+            {/* Call status */}
+            {(inCall || callStatus) && (
+              <div className="mt-3 flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
+                <span className="uppercase tracking-widest text-gray-400">
+                  Status
+                </span>
+                <span>{callStatus || "—"}</span>
+              </div>
+            )}
+
+            {inCall ? (
+              <button
+                onClick={handleHangup}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-red-600 py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-700"
+              >
+                <IconPhone />
+                Hang up
+              </button>
+            ) : incomingCall ? (
+              <div className="mt-3 space-y-2">
+                <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
+                  Incoming call from{" "}
+                  <span className="font-semibold text-black">
+                    {incomingCall.from}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAnswer}
+                    className="flex flex-1 items-center justify-center gap-2 rounded bg-green-500 py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-green-600"
+                  >
+                    <IconPhone />
+                    Answer
+                  </button>
+                  <button
+                    onClick={handleReject}
+                    className="flex flex-1 items-center justify-center gap-2 rounded bg-red-600 py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-red-700"
+                  >
+                    <IconPhone />
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleMakeCall}
+                disabled={!callee.trim()}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-black py-2.5 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <IconPhone />
+                Make Call
+              </button>
+            )}
+
+            {/* Hidden remote audio sink — SDK writes the remote MediaStream here */}
+            <audio
+              ref={remoteAudioRef}
+              autoPlay
+              playsInline
+              className="hidden"
+            />
           </div>
         )}
 

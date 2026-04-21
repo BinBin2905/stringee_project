@@ -34,6 +34,25 @@ interface SCCOConnect {
 type SCCOAction = SCCORecord | SCCOConnect;
 type RecordFormat = "mp3" | "wav";
 
+type CallMediaOptions = {
+  remoteMedia?: HTMLMediaElement | null;
+  localMedia?: HTMLMediaElement | null;
+  onSignalingState?: (state: SignalingState) => void;
+  onCallResponse?: (res: CallResponse) => void;
+};
+
+type MakeCallOptions = CallMediaOptions & {
+  from: string;
+  to: string;
+  isVideo?: boolean;
+};
+
+type IncomingCallInfo = {
+  from: string;
+  to: string;
+  callId?: string;
+};
+
 export type {
   TokenPayload,
   SavedToken,
@@ -41,4 +60,7 @@ export type {
   SCCOConnect,
   SCCOAction,
   RecordFormat,
+  CallMediaOptions,
+  MakeCallOptions,
+  IncomingCallInfo,
 };

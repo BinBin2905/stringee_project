@@ -24,7 +24,11 @@ export default async function callRoutes(fastify: FastifyInstance) {
         {
           action: "connect",
           from: { type: "internal", number: from, alias: "" },
-          to: { type: "external", number: to, alias: "" },
+          to: {
+            type: fromInternal ? "internal" : "external",
+            number: to,
+            alias: "",
+          },
         },
       ];
       return reply.send(scco);
