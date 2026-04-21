@@ -46,27 +46,34 @@ const StringeeClient: FC = () => {
 
   const [callee, setCallee] = useState<string>("");
 
-  // ── Load saved token on mount ──
+  // ── Load saved token for this tab's active user ──
   useEffect(() => {
-    const saved = storage.get(userId);
-    if (!saved?.token) return;
+    const activeId = storage.getActiveUserId();
+    if (!activeId) return;
+
+    const saved = storage.get(activeId);
+    if (!saved?.token) {
+      storage.clearActiveUserId();
+      return;
+    }
 
     const info = decodeToken(saved.token);
     if (info && info.exp * 1000 > Date.now()) {
       setToken(saved.token);
       setTokenInfo(info);
-      setUserId(info.userId ?? "");
+      setUserId(saved.userId);
       setRecord(saved.record ?? false);
       setRecordFormat(saved.recordFormat ?? "mp3");
       setRecordStereo(saved.recordStereo ?? false);
       setCallReady(true);
     } else {
-      storage.remove(userId);
+      storage.remove(activeId);
+      storage.clearActiveUserId();
     }
   }, []);
 
   // ── Fetch token ──
-  const fetchToken = useCallback(async (): Promise<string> => {
+  const fetchToken = useCallback(async (): Promise<void> => {
     const trimmed = userId.trim();
     if (!trimmed) {
       setError("Vui lòng nhập User ID");
@@ -80,23 +87,21 @@ const StringeeClient: FC = () => {
       const token = await getClientToken(trimmed);
 
       if (!token) throw new Error("Response không chứa token");
-      console.log("Received token:", token);
       const info = decodeToken(token);
-
-      console.log("Decoded token info:", info);
 
       setToken(token);
       setTokenInfo(info);
       setCallReady(true);
 
       storage.set({
-        token: token,
+        token,
         userId: trimmed,
         record,
         recordFormat,
         recordStereo,
         savedAt: Date.now(),
       });
+      storage.setActiveUserId(trimmed);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Lỗi không xác định";
       setError(
@@ -116,19 +121,23 @@ const StringeeClient: FC = () => {
     });
   }, [token]);
 
-  // ── Clear token ──
+  // ── Clear token (this tab only) ──
   const clearToken = useCallback((): void => {
+    const activeId = storage.getActiveUserId();
     setToken(null);
     setTokenInfo(null);
     setCallReady(false);
-    storage.remove();
+    if (activeId) storage.remove(activeId);
+    storage.clearActiveUserId();
   }, []);
 
   // ── Toggle record & persist ──
   const toggleRecord = (): void => {
     const next = !record;
     setRecord(next);
-    const saved = storage.get(userId);
+    const activeId = storage.getActiveUserId();
+    if (!activeId) return;
+    const saved = storage.get(activeId);
     if (saved) {
       storage.set({ ...saved, record: next, recordFormat, recordStereo });
     }
@@ -147,6 +156,7 @@ const StringeeClient: FC = () => {
       });
     }
 
+    const target = callee.trim() || "TARGET_NUMBER";
     scco.push({
       action: "connect",
       from: {
@@ -154,7 +164,7 @@ const StringeeClient: FC = () => {
         number: userId || "caller",
         alias: userId || "caller",
       },
-      to: { type: "external", number: "TARGET_NUMBER", alias: "TARGET_NUMBER" },
+      to: { type: "external", number: target, alias: target },
       ...(record ? { peerToPeerCall: false } : {}),
       timeout: 45,
     });
@@ -271,11 +281,11 @@ const StringeeClient: FC = () => {
             {/* Toggle switch */}
             <button
               onClick={toggleRecord}
-              className={`relative h-[22px] w-10 rounded-full transition-colors ${record ? "bg-black" : "bg-gray-300"}`}
+              className={`relative h-5.5 w-10 rounded-full transition-colors ${record ? "bg-black" : "bg-gray-300"}`}
               aria-label="Toggle recording"
             >
               <div
-                className={`absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] ${record ? "left-[21px]" : "left-[3px]"}`}
+                className={`absolute top-0.75 h-4 w-4 rounded-full bg-white shadow transition-[left] ${record ? "left-5.25" : "left-0.75"}`}
               />
             </button>
           </div>
@@ -364,7 +374,7 @@ const StringeeClient: FC = () => {
                 {infoRows.map(([label, value, expired]) => (
                   <div
                     key={label}
-                    className="border-b border-r border-gray-200 px-3 py-2 last:border-r-0 [&:nth-child(2)]:border-r-0 [&:nth-last-child(-n+2)]:border-b-0"
+                    className="border-b border-r border-gray-200 px-3 py-2 last:border-r-0 nth-2:border-r-0 nth-last-[-n+2]:border-b-0"
                   >
                     <div className="text-[10px] uppercase tracking-widest text-gray-400">
                       {label}
@@ -397,13 +407,6 @@ const StringeeClient: FC = () => {
                   className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-black outline-none transition focus:border-black disabled:opacity-50"
                 />
               </div>
-
-              {error && (
-                <div className="mt-2 flex items-center gap-2 rounded border border-gray-200 bg-gray-50 px-3 py-2">
-                  <IconAlert />
-                  <span className="text-xs text-gray-500">{error}</span>
-                </div>
-              )}
             </div>
 
             {isExpired && (
@@ -463,13 +466,19 @@ const StringeeClient: FC = () => {
           <p>
             Token lưu tại{" "}
             <code className="rounded bg-gray-50 px-1 py-px text-gray-400">
-              localStorage → stringee_token
+              localStorage → stringee_token:&lt;userId&gt;
+            </code>
+          </p>
+          <p className="mt-1">
+            User đang chọn (theo tab):{" "}
+            <code className="rounded bg-gray-50 px-1 py-px text-gray-400">
+              sessionStorage → stringee_active_user
             </code>
           </p>
           <p className="mt-1">
             Endpoint:{" "}
             <code className="rounded bg-gray-50 px-1 py-px text-gray-400">
-              GET /token/client/:userId
+              POST /api/token
             </code>
           </p>
         </div>

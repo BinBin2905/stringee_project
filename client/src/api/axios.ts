@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from "axios";
+import { storage } from "@/utils/storage";
 
 const backendApi: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_BASE_DEMO_PROJECT_URL,
@@ -8,22 +9,23 @@ const backendApi: AxiosInstance = axios.create({
   },
 });
 
-// Tự gắn token vào MỌI request
+// Attach the active tab's token
 backendApi.interceptors.request.use((config) => {
-  const saved = localStorage.getItem("stringee_token");
-  if (saved) {
-    const { token } = JSON.parse(saved);
-    config.headers["X-STRINGEE-AUTH"] = token;
+  const saved = storage.getActive();
+  if (saved?.token) {
+    config.headers["X-STRINGEE-AUTH"] = saved.token;
   }
   return config;
 });
 
-// Tự xử lý lỗi cho MỌI response
+// On 401, drop the active user's token
 backendApi.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("stringee_token");
+      const id = storage.getActiveUserId();
+      if (id) storage.remove(id);
+      storage.clearActiveUserId();
     }
     return Promise.reject(error);
   },

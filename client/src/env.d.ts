@@ -1,5 +1,5 @@
 interface ImportMetaEnv {
-  readonly BASE_DEMO_PROJECT_URL: string;
+  readonly VITE_BASE_DEMO_PROJECT_URL: string;
 }
 
 interface ImportMeta {

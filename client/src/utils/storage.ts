@@ -1,31 +1,48 @@
 import type { SavedToken, TokenPayload } from "@/api/types/ITypes";
 
-// ── Storage helper ─────────────────────────────────────────
-// const STORAGE_KEY = "stringee_token";
+const TOKEN_PREFIX = "stringee_token:";
+const ACTIVE_USER_KEY = "stringee_active_user";
+
+const tokenKey = (userId: string): string => `${TOKEN_PREFIX}${userId}`;
 
 export const storage = {
   get(userId: string): SavedToken | null {
     try {
-      const raw = localStorage.getItem(userId);
+      const raw = localStorage.getItem(tokenKey(userId));
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
     }
   },
   set(data: SavedToken): void {
-    localStorage.setItem(data.userId, JSON.stringify(data));
+    localStorage.setItem(tokenKey(data.userId), JSON.stringify(data));
   },
   remove(userId: string): void {
-    localStorage.removeItem(userId);
+    localStorage.removeItem(tokenKey(userId));
+  },
+  // Per-tab active user (sessionStorage is scoped to a single tab)
+  getActiveUserId(): string | null {
+    return sessionStorage.getItem(ACTIVE_USER_KEY);
+  },
+  setActiveUserId(userId: string): void {
+    sessionStorage.setItem(ACTIVE_USER_KEY, userId);
+  },
+  clearActiveUserId(): void {
+    sessionStorage.removeItem(ACTIVE_USER_KEY);
+  },
+  getActive(): SavedToken | null {
+    const id = sessionStorage.getItem(ACTIVE_USER_KEY);
+    return id ? storage.get(id) : null;
   },
 };
 
-// ── Helpers ────────────────────────────────────────────────
 export function decodeToken(token: string): TokenPayload | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    return JSON.parse(atob(parts[1]));
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(atob(padded));
   } catch {
     return null;
   }
