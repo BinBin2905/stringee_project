@@ -29,6 +29,7 @@ export default async function callRoutes(fastify: FastifyInstance) {
             number: to,
             alias: "",
           },
+          peerToPeerCall: false,
         },
       ];
       return reply.send(scco);
@@ -39,6 +40,9 @@ export default async function callRoutes(fastify: FastifyInstance) {
     `${process.env.PROJECT_EVENT_URL}`,
     async (request, reply) => {
       // Handle callback logic here
+      console.log("Received event callback with body:");
+      console.log(request.body);
+      return reply.send({ status: "ok" });
     },
   );
 }

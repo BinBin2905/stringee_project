@@ -21,7 +21,6 @@ declare const StringeeUtil: {
 declare class StringeeClient {
   connect(token: string): void;
   disconnect(): void;
-
   on(event: StringeeClientEvents, cb: (...args: unknown[]) => void): void;
 }
 
@@ -52,6 +51,10 @@ declare class StringeeCall {
     to: string,
     isVideoCall: boolean,
   );
+  client: StringeeClient;
+  from: string;
+  to: string;
+  isVideoCall: boolean;
   makeCall(cb: (res: CallResponse) => void): void;
   answer(cb: (res: CallResponse) => void): void;
   hangup(cb: (res: CallResponse) => void): void;
