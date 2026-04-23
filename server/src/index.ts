@@ -1,17 +1,17 @@
 import fastify from "fastify";
-import dotenv from "dotenv";
 import cors from "@fastify/cors";
-import routes from "./route/route.js";
-dotenv.config();
+import { env } from "./env.js";
+import routes from "./routes/index.js";
 
 const server = fastify();
 
-await server.register(cors, {});
+await server.register(cors, {
+  origin: env.corsOrigin ?? true,
+  credentials: true,
+});
 await server.register(routes);
 
-console.log("PORT", process.env.PORT);
-
-server.listen({ port: Number(process.env.PORT) }, (err, address) => {
+server.listen({ port: env.port }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);

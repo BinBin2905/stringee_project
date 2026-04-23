@@ -1,46 +1,32 @@
 import { signManualJwt } from "../utils/jwt.js";
+import { env } from "../env.js";
 
-export function generateClientPCCToken(
-  userId: string,
-  ttlSeconds: number | 3600,
-): string {
+const header = { typ: "JWT", alg: "HS256", cty: "stringee-api;v=1" };
+
+export function generateClientToken(userId: string, ttlSeconds: number): string {
   const now = Math.floor(Date.now() / 1000);
-
-  const header = { typ: "JWT", alg: "HS256", cty: "stringee-api;v=1" };
-
-  const payload = {
-    jti: `${process.env.STRINGEE_API_KEY_SID}-${now}`,
-    iss: process.env.STRINGEE_API_KEY_SID,
-    userId: userId,
-    exp: now + ttlSeconds,
-    rest_api: true,
-  };
-
   return signManualJwt({
     header,
-    payload,
-    secret: process.env.STRINGEE_API_KEY_SECRET!,
+    payload: {
+      jti: `${env.stringeeKeySid}-${now}`,
+      iss: env.stringeeKeySid,
+      userId,
+      exp: now + ttlSeconds,
+    },
+    secret: env.stringeeKeySecret,
   });
 }
 
-export function generateClientToken(
-  userId: string,
-  ttlSeconds: number | 3600,
-): string {
+export function generateRestApiToken(ttlSeconds: number): string {
   const now = Math.floor(Date.now() / 1000);
-
-  const header = { typ: "JWT", alg: "HS256", cty: "stringee-api;v=1" };
-
-  const payload = {
-    jti: `${process.env.STRINGEE_API_KEY_SID}-${now}`,
-    iss: process.env.STRINGEE_API_KEY_SID,
-    userId: userId,
-    exp: now + ttlSeconds,
-  };
-
   return signManualJwt({
     header,
-    payload,
-    secret: process.env.STRINGEE_API_KEY_SECRET!,
+    payload: {
+      jti: `${env.stringeeKeySid}-${now}`,
+      iss: env.stringeeKeySid,
+      exp: now + ttlSeconds,
+      rest_api: true,
+    },
+    secret: env.stringeeKeySecret,
   });
 }
