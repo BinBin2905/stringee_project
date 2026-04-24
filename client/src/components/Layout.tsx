@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router";
 import type { FC } from "react";
+import TokenStatusPanel from "./TokenStatusPanel";
 
 const Layout: FC = () => {
   const navClass = ({ isActive }: { isActive: boolean }): string =>
@@ -20,9 +21,13 @@ const Layout: FC = () => {
           <NavLink to="/admin" role="tab" className={navClass}>
             Admin
           </NavLink>
+          <NavLink to="/pcc" role="tab" className={navClass}>
+            PCC
+          </NavLink>
         </div>
       </div>
       <Outlet />
+      <TokenStatusPanel />
     </div>
   );
 };

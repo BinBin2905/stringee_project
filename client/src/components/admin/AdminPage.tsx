@@ -1,166 +1,136 @@
-import { useState, type FC, type ReactNode } from "react";
-import { adminApi, type EndpointKey } from "@/api/admin";
+import { type FC } from "react";
+import { adminApi } from "@/api/admin";
 import JsonApiCard from "./JsonApiCard";
 import CallLogCard from "./CallLogCard";
 import RecordingCard from "./RecordingCard";
+import TabView, { type Tab } from "./TabView";
+import { shellCard } from "./shell";
+import DualEditor from "./editor/DualEditor";
+import PCCGuard from "../PCCGuard";
+import {
+  ADD_PARTICIPANT,
+  AGENT_SPEC,
+  FORCE_VIDEO,
+  GROUP_SPEC,
+  IVR_TREE_SPEC,
+  MAKE_CALL,
+  NUMBER_SPEC,
+  PUT_ACTIONS,
+  QUEUE_SPEC,
+  SEND_MESSAGE,
+  STOP_CALL,
+  TRANSFER_CALL,
+} from "./editor/specs";
 
-// One row per tab. `render` receives the current index — allows each card
-// to be lazy-rendered only when its tab is active.
-type Tab = {
-  key: string;
-  label: string;
-  render: () => ReactNode;
-};
+export type { Tab };
 
-const postCard = (
-  title: string,
-  endpoint: Extract<EndpointKey, `${string}`>,
-  path: string,
-  body: unknown,
-  description?: string,
-): (() => ReactNode) => () => (
+// ── REST Token ────────────────────────────────────────────────────────────
+// Single token: Stringee signs one JWT that authenticates both the Call REST
+// API and the PCC / ICC REST API. Dispatch is by URL, not by claim.
+const RestTokenPane: FC = () => (
   <JsonApiCard
-    title={title}
-    method="POST"
-    path={path}
-    description={description}
-    initialBody={JSON.stringify(body, null, 2)}
-    onSend={(b) => adminApi.post(endpoint, b)}
+    title="Generate REST API token (Call + PCC / ICC)"
+    method="GET"
+    path="/admin/rest-token"
+    description="Short-lived JWT signed with rest_api=true. Sent as X-STRINGEE-AUTH. Works for both the Call REST API and the PCC / ICC REST API — Stringee dispatches on URL, not claim."
+    initialBody="{}"
+    onSend={() => adminApi.restToken()}
   />
 );
 
-const TABS: Tab[] = [
-  {
-    key: "token",
-    label: "REST Token",
-    render: () => (
-      <JsonApiCard
-        title="Generate REST API token"
-        method="GET"
-        path="/admin/rest-token"
-        description="Short-lived JWT the server signs and uses internally for every REST proxy call. Useful for debugging."
-        initialBody="{}"
-        onSend={() => adminApi.restToken()}
-      />
-    ),
-  },
-  {
-    key: "make-call",
-    label: "Make Call",
-    render: postCard(
-      "Make outbound call",
-      "make-call",
-      "/v1/call2/callout",
-      {
-        from: { type: "external", number: "STRINGEE_NUMBER", alias: "STRINGEE_NUMBER" },
-        to: [{ type: "external", number: "TO_NUMBER", alias: "TO_NUMBER" }],
-        actions: [{ action: "talk", text: "Hello from Stringee admin" }],
-      },
-    ),
-  },
-  {
-    key: "put-actions",
-    label: "Put SCCO",
-    render: postCard(
-      "Put actions (SCCO) on active call",
-      "put-actions",
-      "/v1/call2/putactions",
-      {
-        callId: "YOUR_CALL_ID",
-        actions: [
-          {
-            action: "connect",
-            from: { type: "external", number: "SOURCE_NUMBER" },
-            to: { type: "internal", number: "USER_ID" },
-          },
-        ],
-      },
-    ),
-  },
-  {
-    key: "stop-call",
-    label: "Stop Call",
-    render: postCard("Stop call", "stop-call", "/v1/call2/stop", {
-      callId: "YOUR_CALL_ID",
-    }),
-  },
-  {
-    key: "transfer",
-    label: "Transfer",
-    render: postCard("Transfer call", "transfer-call", "/v1/call2/transfer", {
-      callId: "YOUR_CALL_ID",
-      fromUserId: "user1",
-      to: { type: "internal", number: "user2", alias: "user2" },
-    }),
-  },
-  {
-    key: "add-participant",
-    label: "Add Participant",
-    render: postCard(
-      "Add participant",
-      "add-participant",
-      "/v1/call2/adduser",
-      {
-        callId: "YOUR_CALL_ID",
-        from: { type: "external", number: "STRINGEE_NUMBER", alias: "STRINGEE_NUMBER" },
-        to: { type: "internal", number: "user1", alias: "user1" },
-        spyCall: false,
-      },
-    ),
-  },
-  {
-    key: "force-video",
-    label: "Force Video Floor",
-    render: postCard(
-      "Force video floor",
-      "force-video-floor",
-      "/v1/call2/setvideofloor",
-      { callId: "YOUR_CALL_ID", userId: "user1" },
-    ),
-  },
-  {
-    key: "send-message",
-    label: "Send Custom Message",
-    render: postCard(
-      "Send custom message to user",
-      "send-message",
-      "/v1/user/sendcustommessage",
-      { from: "system", toUser: "user1", message: { a: "Hello!" } },
-    ),
-  },
+// ── Stringee Call REST API tabs (Table ↔ JSON via DualEditor) ─────────────
+const CALL_REST_TABS: Tab[] = [
+  { key: "make-call", label: "Make Call", render: () => <DualEditor spec={MAKE_CALL} /> },
+  { key: "put-actions", label: "Put SCCO", render: () => <DualEditor spec={PUT_ACTIONS} /> },
+  { key: "stop-call", label: "Stop Call", render: () => <DualEditor spec={STOP_CALL} /> },
+  { key: "transfer", label: "Transfer", render: () => <DualEditor spec={TRANSFER_CALL} /> },
+  { key: "add-participant", label: "Add Participant", render: () => <DualEditor spec={ADD_PARTICIPANT} /> },
+  { key: "force-video", label: "Force Video Floor", render: () => <DualEditor spec={FORCE_VIDEO} /> },
+  { key: "send-message", label: "Send Custom Message", render: () => <DualEditor spec={SEND_MESSAGE} /> },
   { key: "call-log", label: "Call Log", render: () => <CallLogCard /> },
   { key: "recording", label: "Recording", render: () => <RecordingCard /> },
 ];
 
-const AdminPage: FC = () => {
-  const [active, setActive] = useState<string>(TABS[0].key);
-  const current = TABS.find((t) => t.key === active) ?? TABS[0];
+// ── PCC / ICC REST API tabs ───────────────────────────────────────────────
+// Wired CRUD resources render read-only (edits live on /pcc). Nested
+// resources remain JSON-only shells until you spec them.
+const PCC_REST_TABS: Tab[] = [
+  { key: "agent", label: "Agent", render: () => <DualEditor spec={AGENT_SPEC} readonly /> },
+  { key: "group", label: "Group", render: () => <DualEditor spec={GROUP_SPEC} readonly /> },
+  { key: "queue", label: "Queue", render: () => <DualEditor spec={QUEUE_SPEC} readonly /> },
+  { key: "number", label: "Number", render: () => <DualEditor spec={NUMBER_SPEC} readonly /> },
+  { key: "ivr-tree", label: "IVR Tree", render: () => <DualEditor spec={IVR_TREE_SPEC} readonly /> },
+  {
+    key: "ivr-tree-node",
+    label: "IVR Tree Node",
+    render: shellCard(
+      "IVR tree node management",
+      "POST",
+      "/v1/ivr/tree/{treeId}/node",
+      { name: "NODE_NAME" },
+      "Nested resource — wire the server route before enabling Table edit.",
+    ),
+  },
+  {
+    key: "ivr-keypress",
+    label: "IVR Keypress",
+    render: shellCard(
+      "IVR node keypress management",
+      "POST",
+      "/v1/ivr/node/{nodeId}/keypress",
+      { key: "1", action: "GOTO_NODE" },
+    ),
+  },
+  {
+    key: "group-agent",
+    label: "Group Agents",
+    render: shellCard(
+      "Manage agents in a group",
+      "POST",
+      "/v1/group/{groupId}/agent",
+      { agentId: "AGENT_ID" },
+    ),
+  },
+  {
+    key: "group-routing",
+    label: "Group Routing",
+    render: shellCard(
+      "Group routing",
+      "POST",
+      "/v1/queue/{queueId}/routing",
+      { groupId: "GROUP_ID", priority: 1 },
+    ),
+  },
+];
 
-  return (
-    <main className="mx-auto max-w-4xl px-4 py-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Stringee Admin</h1>
-        <p className="text-sm text-base-content/60">
-          Mini admin panel for the Stringee Call REST API (dev).
-        </p>
-      </div>
+const TOP_TABS: Tab[] = [
+  { key: "rest-token", label: "REST Token", render: () => <RestTokenPane /> },
+  {
+    key: "stringeeCallRestApi",
+    label: "stringeeCallRestApi",
+    render: () => <TabView tabs={CALL_REST_TABS} size="sm" />,
+  },
+  {
+    key: "PCCRestApi",
+    label: "PCCRestApi",
+    render: () => (
+      <PCCGuard>
+        <TabView tabs={PCC_REST_TABS} size="sm" />
+      </PCCGuard>
+    ),
+  },
+];
 
-      <div role="tablist" className="tabs tabs-box flex-wrap">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            className={`tab ${active === t.key ? "tab-active" : ""}`}
-            onClick={() => setActive(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {current.render()}
-    </main>
-  );
-};
+const AdminPage: FC = () => (
+  <main className="mx-auto max-w-4xl px-4 py-6 space-y-4">
+    <div>
+      <h1 className="text-2xl font-bold">Stringee Admin</h1>
+      <p className="text-sm text-base-content/60">
+        REST API reference for the Stringee Call REST API and PCC / ICC REST API (dev).
+      </p>
+    </div>
+    <TabView tabs={TOP_TABS} />
+  </main>
+);
 
 export default AdminPage;

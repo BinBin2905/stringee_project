@@ -17,7 +17,7 @@ export async function proxyTo<T = unknown>(
   opts: { body?: unknown; query?: string; pathSuffix?: string } = {},
 ): Promise<ProxyResult<T>> {
   const token = generateRestApiToken(env.restTokenTtlSec);
-  const url = `${env.stringeeApiBase}${endpoint.path}${opts.pathSuffix ?? ""}${
+  const url = `${endpoint.base ?? env.stringeeApiBase}${endpoint.path}${opts.pathSuffix ?? ""}${
     opts.query ? `?${opts.query.replace(/^\?/, "")}` : ""
   }`;
 

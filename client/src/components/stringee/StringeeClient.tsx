@@ -39,6 +39,7 @@ const StringeeClient: FC = () => {
   const [record, setRecord] = useState(false);
   const [recordFormat, setRecordFormat] = useState<RecordFormat>("mp3");
   const [recordStereo, setRecordStereo] = useState(false);
+  const [pcc, setPcc] = useState(false);
 
   const [callReady, setCallReady] = useState(false);
   const [inCall, setInCall] = useState(false);
@@ -66,6 +67,7 @@ const StringeeClient: FC = () => {
       setRecord(saved.record);
       setRecordFormat(saved.recordFormat);
       setRecordStereo(saved.recordStereo);
+      setPcc(!!info.pcc);
       setCallReady(true);
     } else {
       storage.remove(activeId);
@@ -91,7 +93,7 @@ const StringeeClient: FC = () => {
     setLoading(true);
     setError("");
     try {
-      const fresh = await getClientToken(trimmed);
+      const fresh = await getClientToken(trimmed, pcc);
       const info = decodeToken(fresh);
       setToken(fresh);
       setTokenInfo(info);
@@ -103,6 +105,7 @@ const StringeeClient: FC = () => {
         recordFormat,
         recordStereo,
         savedAt: Date.now(),
+        pcc: !!info?.pcc,
       });
       storage.setActiveUserId(trimmed);
       connectToStringee(fresh);
@@ -116,7 +119,7 @@ const StringeeClient: FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId, record, recordFormat, recordStereo, serverUrl]);
+  }, [userId, record, recordFormat, recordStereo, pcc, serverUrl]);
 
   const copyToken = useCallback(() => {
     if (!token) return;
@@ -253,6 +256,8 @@ const StringeeClient: FC = () => {
         copied={copied}
         onCopy={copyToken}
         onClear={clearToken}
+        pcc={pcc}
+        onPccChange={setPcc}
       />
 
       <RecordingCard

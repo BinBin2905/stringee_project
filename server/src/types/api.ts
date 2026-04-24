@@ -4,13 +4,15 @@ export interface ProxyResult<T = unknown> {
   body: T;
 }
 
-export type HttpMethod = "GET" | "POST";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 // A single Stringee REST endpoint definition.
 // `rawQuery` — when true, the client's full query string is forwarded
 // unchanged (needed for `search_after[]=…&search_after[]=…`).
+// `base`     — override the default Call API host (use for PCC/ICC).
 export interface StringeeEndpoint {
   method: HttpMethod;
   path: string;
   rawQuery?: boolean;
+  base?: string;
 }

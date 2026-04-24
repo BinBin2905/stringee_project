@@ -1,0 +1,435 @@
+// OOP spec hierarchy driving the generic editor components.
+// Adding a new resource / action is a single class instantiation — see the
+// concrete `new PccResource(...)` / `new CallAction(...)` calls below.
+
+import { adminApi } from "@/api/admin";
+import type { ApiResult } from "@/types";
+import type { Column, Field } from "./model";
+
+// ── Base ────────────────────────────────────────────────────────────────
+export abstract class Spec {
+  abstract readonly name: string;
+  abstract readonly title: string;
+  abstract readonly fields: readonly Field[];
+}
+
+// Single-write action (POST/PUT/DELETE with no list/read counterpart).
+export abstract class ActionSpec extends Spec {
+  abstract readonly method: string;
+  abstract readonly restPath: string;
+  abstract readonly initialBody: Record<string, unknown>;
+  abstract send(body: unknown): Promise<ApiResult>;
+}
+
+// Full CRUD resource: list / create / update / remove.
+export abstract class ResourceSpec extends Spec {
+  abstract readonly restPath: string;
+  abstract readonly columns: readonly Column[];
+  readonly idKey: string = "id";
+  protected abstract readonly listKey: string;
+  // Optional starter body for JSON-edit mode on create.
+  readonly exampleBody: Record<string, unknown> = {};
+
+  abstract list(page: number, limit: number): Promise<ApiResult>;
+  abstract create(body: unknown): Promise<ApiResult>;
+  abstract update(id: string, body: unknown): Promise<ApiResult>;
+  abstract remove(id: string): Promise<ApiResult>;
+
+  // Default envelope: `{ data: { <listKey>: [...], totalPages, ... } }`.
+  // Override if the resource ships a non-standard envelope.
+  extractRows(envelope: unknown): {
+    rows: Record<string, unknown>[];
+    totalPages: number;
+  } {
+    const d =
+      (envelope as { data?: Record<string, unknown> } | null)?.data ?? {};
+    return {
+      rows: (d[this.listKey] as Record<string, unknown>[]) ?? [],
+      totalPages: (d.totalPages as number) ?? 1,
+    };
+  }
+}
+
+// ── Call REST API actions (POST-only) ──────────────────────────────────
+type CallEp =
+  | "make-call"
+  | "put-actions"
+  | "stop-call"
+  | "transfer-call"
+  | "add-participant"
+  | "force-video-floor"
+  | "send-message";
+
+class CallAction extends ActionSpec {
+  readonly method = "POST";
+  readonly name: string;
+  readonly title: string;
+  readonly endpoint: CallEp;
+  readonly restPath: string;
+  readonly fields: readonly Field[];
+  readonly initialBody: Record<string, unknown>;
+
+  constructor(
+    name: string,
+    title: string,
+    endpoint: CallEp,
+    restPath: string,
+    fields: readonly Field[],
+    initialBody: Record<string, unknown>,
+  ) {
+    super();
+    this.name = name;
+    this.title = title;
+    this.endpoint = endpoint;
+    this.restPath = restPath;
+    this.fields = fields;
+    this.initialBody = initialBody;
+  }
+  send(body: unknown) {
+    return adminApi.post(this.endpoint, body);
+  }
+}
+
+// Reusable sub-schemas. Keyed field lists — `fields` drives the nested form.
+const PARTY_FIELDS: readonly Field[] = [
+  {
+    key: "type",
+    label: "type",
+    type: "string",
+    options: ["internal", "external"],
+  },
+  { key: "number", label: "number", type: "string", required: true },
+  { key: "alias", label: "alias", type: "string" },
+];
+
+const partyField = (key: string, label = key, hint?: string): Field => ({
+  key,
+  label,
+  type: "object",
+  fields: PARTY_FIELDS,
+  hint,
+});
+
+// SCCO items are polymorphic across action types (talk / connect / record / …).
+// Expose the common fields; for uncommon ones, switch to JSON edit.
+const SCCO_FIELDS: readonly Field[] = [
+  {
+    key: "action",
+    label: "action",
+    type: "string",
+    required: true,
+    options: ["talk", "connect", "record", "play", "hangup"],
+  },
+  { key: "text", label: "text", type: "string", hint: "talk" },
+  {
+    key: "from",
+    label: "from",
+    type: "object",
+    fields: PARTY_FIELDS,
+    hint: "connect",
+  },
+  {
+    key: "to",
+    label: "to",
+    type: "object",
+    fields: PARTY_FIELDS,
+    hint: "connect",
+  },
+  { key: "eventUrl", label: "eventUrl", type: "string", hint: "record" },
+  {
+    key: "format",
+    label: "format",
+    type: "string",
+    options: ["mp3", "wav", "mp4"],
+    hint: "record",
+  },
+];
+
+const sccoArray = (key = "actions", hint?: string): Field => ({
+  key,
+  label: key,
+  type: "array",
+  item: { key: "scco", label: "Action", type: "object", fields: SCCO_FIELDS },
+  hint,
+});
+
+export const MAKE_CALL = new CallAction(
+  "make-call",
+  "Make outbound call",
+  "make-call",
+  "/v1/call2/callout",
+  [
+    partyField("from"),
+    {
+      key: "to",
+      label: "to",
+      type: "array",
+      item: {
+        key: "party",
+        label: "Party",
+        type: "object",
+        fields: PARTY_FIELDS,
+      },
+    },
+    sccoArray(),
+  ],
+  {
+    from: {
+      type: "external",
+      number: "STRINGEE_NUMBER",
+      alias: "STRINGEE_NUMBER",
+    },
+    to: [{ type: "external", number: "TO_NUMBER", alias: "TO_NUMBER" }],
+    actions: [{ action: "talk", text: "Hello from Stringee admin" }],
+  },
+);
+
+export const PUT_ACTIONS = new CallAction(
+  "put-actions",
+  "Put actions (SCCO) on active call",
+  "put-actions",
+  "/v1/call2/putactions",
+  [
+    { key: "callId", label: "callId", type: "string", required: true },
+    sccoArray(),
+  ],
+  {
+    callId: "YOUR_CALL_ID",
+    actions: [
+      {
+        action: "connect",
+        from: { type: "external", number: "SOURCE_NUMBER" },
+        to: { type: "internal", number: "USER_ID" },
+      },
+    ],
+  },
+);
+
+export const STOP_CALL = new CallAction(
+  "stop-call",
+  "Stop call",
+  "stop-call",
+  "/v1/call2/stop",
+  [{ key: "callId", label: "callId", type: "string", required: true }],
+  { callId: "YOUR_CALL_ID" },
+);
+
+export const TRANSFER_CALL = new CallAction(
+  "transfer-call",
+  "Transfer call",
+  "transfer-call",
+  "/v1/call2/transfer",
+  [
+    { key: "callId", label: "callId", type: "string", required: true },
+    { key: "fromUserId", label: "fromUserId", type: "string" },
+    partyField("to"),
+  ],
+  {
+    callId: "YOUR_CALL_ID",
+    fromUserId: "user1",
+    to: { type: "internal", number: "user2", alias: "user2" },
+  },
+);
+
+export const ADD_PARTICIPANT = new CallAction(
+  "add-participant",
+  "Add participant",
+  "add-participant",
+  "/v1/call2/adduser",
+  [
+    { key: "callId", label: "callId", type: "string", required: true },
+    partyField("from"),
+    partyField("to"),
+    { key: "spyCall", label: "spyCall", type: "boolean" },
+  ],
+  {
+    callId: "YOUR_CALL_ID",
+    from: {
+      type: "external",
+      number: "STRINGEE_NUMBER",
+      alias: "STRINGEE_NUMBER",
+    },
+    to: { type: "internal", number: "user1", alias: "user1" },
+    spyCall: false,
+  },
+);
+
+export const FORCE_VIDEO = new CallAction(
+  "force-video-floor",
+  "Force video floor",
+  "force-video-floor",
+  "/v1/call2/setvideofloor",
+  [
+    { key: "callId", label: "callId", type: "string", required: true },
+    { key: "userId", label: "userId", type: "string", required: true },
+  ],
+  { callId: "YOUR_CALL_ID", userId: "user1" },
+);
+
+export const SEND_MESSAGE = new CallAction(
+  "send-message",
+  "Send custom message",
+  "send-message",
+  "/v1/user/sendcustommessage",
+  [
+    { key: "from", label: "from", type: "string" },
+    { key: "toUser", label: "toUser", type: "string", required: true },
+    {
+      key: "message",
+      label: "message",
+      type: "json",
+      hint: "arbitrary JSON payload",
+    },
+  ],
+  { from: "system", toUser: "user1", message: { a: "Hello!" } },
+);
+
+// ── PCC CRUD resources ─────────────────────────────────────────────────
+type CrudApi = {
+  list: (page: number, limit: number) => Promise<ApiResult>;
+  create: (body: unknown) => Promise<ApiResult>;
+  update: (id: string, body: unknown) => Promise<ApiResult>;
+  delete: (id: string) => Promise<ApiResult>;
+};
+
+class PccResource extends ResourceSpec {
+  readonly name: string;
+  readonly title: string;
+  readonly restPath: string;
+  readonly fields: readonly Field[];
+  readonly columns: readonly Column[];
+  protected readonly listKey: string;
+  private readonly api: CrudApi;
+  declare readonly exampleBody: Record<string, unknown>;
+
+  constructor(
+    name: string,
+    title: string,
+    restPath: string,
+    fields: readonly Field[],
+    columns: readonly Column[],
+    listKey: string,
+    api: CrudApi,
+    exampleBody: Record<string, unknown> = {},
+  ) {
+    super();
+    this.name = name;
+    this.title = title;
+    this.restPath = restPath;
+    this.fields = fields;
+    this.columns = columns;
+    this.listKey = listKey;
+    this.api = api;
+    this.exampleBody = exampleBody;
+  }
+  list(p: number, l: number) {
+    return this.api.list(p, l);
+  }
+  create(b: unknown) {
+    return this.api.create(b);
+  }
+  update(id: string, b: unknown) {
+    return this.api.update(id, b);
+  }
+  remove(id: string) {
+    return this.api.delete(id);
+  }
+}
+
+export const AGENT_SPEC = new PccResource(
+  "agent",
+  "Agent management",
+  "/v1/agent",
+  [
+    { key: "name", label: "name", type: "string", required: true },
+    {
+      key: "stringee_user_id",
+      label: "stringee_user_id",
+      type: "string",
+      required: true,
+    },
+    { key: "manual_status", label: "manual_status", type: "string" },
+    { key: "routing_type", label: "routing_type", type: "number" },
+    { key: "phone_number", label: "phone_number", type: "string" },
+  ],
+  [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "stringee_user_id", label: "User" },
+    { key: "manual_status", label: "Manual" },
+    { key: "system_status", label: "System" },
+    { key: "device_status", label: "Device" },
+  ],
+  "agents",
+  adminApi.agent,
+  { name: "AGENT_NAME", stringee_user_id: "USER_ID" },
+);
+
+export const GROUP_SPEC = new PccResource(
+  "group",
+  "Group management",
+  "/v1/group",
+  [{ key: "name", label: "name", type: "string", required: true }],
+  [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+  ],
+  "groups",
+  adminApi.group,
+  { name: "GROUP_NAME" },
+);
+
+export const QUEUE_SPEC = new PccResource(
+  "queue",
+  "Queue management",
+  "/v1/queue",
+  [
+    { key: "name", label: "name", type: "string", required: true },
+    {
+      key: "strategy",
+      label: "strategy",
+      type: "string",
+      hint: "e.g. round_robin",
+    },
+  ],
+  [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "strategy", label: "Strategy" },
+  ],
+  "queues",
+  adminApi.queue,
+  { name: "QUEUE_NAME", strategy: "round_robin" },
+);
+
+export const NUMBER_SPEC = new PccResource(
+  "number",
+  "Number management",
+  "/v1/number",
+  [
+    { key: "number", label: "number", type: "string", required: true },
+    { key: "treeId", label: "treeId", type: "string" },
+  ],
+  [
+    { key: "id", label: "ID" },
+    { key: "number", label: "Number" },
+    { key: "treeId", label: "IVR Tree" },
+  ],
+  "numbers",
+  adminApi.number,
+  { number: "STRINGEE_NUMBER", treeId: "IVR_TREE_ID" },
+);
+
+export const IVR_TREE_SPEC = new PccResource(
+  "ivr-tree",
+  "IVR tree management",
+  "/v1/ivr/tree",
+  [{ key: "name", label: "name", type: "string", required: true }],
+  [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+  ],
+  "trees",
+  adminApi.ivrTree,
+  { name: "TREE_NAME" },
+);

@@ -17,6 +17,8 @@ type Props = {
   copied: boolean;
   onCopy: () => void;
   onClear: () => void;
+  pcc: boolean;
+  onPccChange: (v: boolean) => void;
 };
 
 const TokenCard: FC<Props> = (p) => (
@@ -69,6 +71,20 @@ const TokenCard: FC<Props> = (p) => (
         </div>
       </label>
 
+      <label className="label cursor-pointer justify-start gap-2 py-0">
+        <input
+          type="checkbox"
+          className="checkbox checkbox-sm"
+          checked={p.pcc}
+          onChange={(e) => p.onPccChange(e.target.checked)}
+          disabled={p.loading}
+        />
+        <span className="label-text text-xs">
+          PCC agent token
+          <span className="text-base-content/50"> — adds <code>pcc: true</code> claim, required to enter /pcc and the PCC REST tabs.</span>
+        </span>
+      </label>
+
       {p.error && (
         <div role="alert" className="alert alert-error text-xs py-2">
           <span>{p.error}</span>
@@ -105,8 +121,11 @@ const TokenCard: FC<Props> = (p) => (
             <div className="stats stats-horizontal bg-base-200 w-full overflow-x-auto">
               <div className="stat py-2 px-3">
                 <div className="stat-title text-[10px]">User</div>
-                <div className="stat-value text-sm">
+                <div className="stat-value text-sm flex items-center gap-2">
                   {p.tokenInfo.userId ?? "—"}
+                  {p.tokenInfo.pcc && (
+                    <span className="badge badge-primary badge-sm">PCC</span>
+                  )}
                 </div>
               </div>
               <div className="stat py-2 px-3">

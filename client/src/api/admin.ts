@@ -17,7 +17,7 @@ type EndpointKey =
 // Generic caller: returns { status, data } whether the request succeeded or
 // the server sent a 4xx/5xx — UI code only checks `status`.
 async function call<T = unknown>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<ApiResult<T>> {
@@ -47,6 +47,7 @@ export const adminApi = {
 
   // REST token debug
   restToken: () => call("GET", "/rest-token"),
+  pccToken: () => call("GET", "/pcc-token"),
 
   // Call log — accepts a raw query string so `search_after[]=…&search_after[]=…`
   // repeats survive intact.
@@ -57,6 +58,26 @@ export const adminApi = {
     const base = `${import.meta.env.VITE_BASE_DEMO_PROJECT_URL}/admin/recording/${encodeURIComponent(recordId)}`;
     return format ? `${base}?format=${encodeURIComponent(format)}` : base;
   },
+
+  // ── PCC / ICC CRUD — one namespace per top-level resource ────────────
+  agent: crud("agent"),
+  group: crud("group"),
+  queue: crud("queue"),
+  number: crud("number"),
+  ivrTree: crud("ivr-tree"),
 };
+
+// Generic CRUD bindings for a PCC resource exposed at /admin/pcc/<slug>.
+function crud(slug: string) {
+  const base = `/pcc/${slug}`;
+  return {
+    list: (page = 1, limit = 20) =>
+      call("GET", `${base}?page=${page}&limit=${limit}`),
+    create: (body: unknown) => call("POST", base, body),
+    update: (id: string, body: unknown) =>
+      call("PUT", `${base}/${encodeURIComponent(id)}`, body),
+    delete: (id: string) => call("DELETE", `${base}/${encodeURIComponent(id)}`),
+  };
+}
 
 export type { EndpointKey };
