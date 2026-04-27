@@ -11,7 +11,30 @@ import {
   IVR_TREE_SPEC,
   NUMBER_SPEC,
   QUEUE_SPEC,
+  SIP_ACCOUNT_SPEC,
 } from "../admin/editor/specs";
+
+// Inline body-keyed wired card. Pulls URL params (e.g. `groupId`) out of the
+// edited body and forwards the remainder to `send`.
+const wiredCard =
+  (
+    title: string,
+    method: string,
+    path: string,
+    body: Record<string, unknown>,
+    send: (b: Record<string, unknown>) => Promise<import("@/types").ApiResult>,
+    description?: string,
+  ) =>
+  () => (
+    <JsonApiCard
+      title={title}
+      method={method}
+      path={path}
+      description={description}
+      initialBody={JSON.stringify(body, null, 2)}
+      onSend={(b) => send((b as Record<string, unknown>) ?? {})}
+    />
+  );
 
 // ── PCC subtabs — one per section in the PCC overview sidebar ────────────
 // Wired CRUD resources get a DualEditor (Table ↔ JSON). Un-specced sections
@@ -54,26 +77,24 @@ const TABS: Tab[] = [
   {
     key: "make-call-to-agent",
     label: "Make Call To Agent",
-    render: shellCard(
+    render: wiredCard(
       "Make call to an agent, then connect to a phone",
       "POST",
-      "/v1/icc/call/agent-then-phone",
+      "/admin/pcc/calls/callout",
       {
-        agentId: "AGENT_ID",
-        from: { type: "external", number: "STRINGEE_NUMBER" },
-        to: { type: "external", number: "DESTINATION_NUMBER" },
+        agentUserId: "AGENT_USER_ID",
+        toAgentFromNumberDisplay: "STRINGEE_NUMBER",
+        toAgentFromNumberDisplayAlias: "STRINGEE_NUMBER",
+        toCustomerFromNumber: "STRINGEE_NUMBER",
+        customerNumber: "DESTINATION_NUMBER",
       },
+      (b) => adminApi.callout(b),
     ),
   },
   {
     key: "sip-account",
     label: "SIP Account",
-    render: shellCard(
-      "SIP account management",
-      "POST",
-      "/v1/icc/sip-account",
-      { username: "SIP_USER", password: "SIP_PASS", domain: "sip.provider.tld" },
-    ),
+    render: () => <DualEditor spec={SIP_ACCOUNT_SPEC} />,
   },
   {
     key: "transfer",
@@ -89,11 +110,18 @@ const TABS: Tab[] = [
   {
     key: "group-routing",
     label: "Group Routing",
-    render: shellCard(
-      "Group routing",
+    render: wiredCard(
+      "Assign group to queue",
       "POST",
-      "/v1/icc/group-routing",
-      { queueId: "QUEUE_ID", groupId: "GROUP_ID", priority: 1 },
+      "/admin/pcc/groups/{groupId}/queues/{queueId}",
+      { groupId: "GROUP_ID", queueId: "QUEUE_ID", priority: 1 },
+      (b) => {
+        const { groupId, queueId, ...rest } = b as {
+          groupId: string;
+          queueId: string;
+        };
+        return adminApi.assignGroupToQueue(groupId, queueId, rest);
+      },
     ),
   },
   { key: "queue", label: "Queue", render: () => <DualEditor spec={QUEUE_SPEC} /> },
@@ -112,21 +140,29 @@ const TABS: Tab[] = [
   {
     key: "ivr-keypress",
     label: "IVR Keypress",
-    render: shellCard(
+    render: wiredCard(
       "IVR node keypress management",
       "POST",
-      "/v1/icc/ivr/node/{nodeId}/keypress",
-      { key: "1", action: "GOTO_NODE" },
+      "/admin/pcc/ivr-nodes/{nodeId}/keypresses",
+      { nodeId: "NODE_ID", key: "1", action: "GOTO_NODE" },
+      (b) => {
+        const { nodeId, ...rest } = b as { nodeId: string };
+        return adminApi.configureIvrKeypress(nodeId, rest);
+      },
     ),
   },
   {
     key: "ivr-tree-node",
     label: "IVR Tree Node",
-    render: shellCard(
+    render: wiredCard(
       "IVR tree node management",
       "POST",
-      "/v1/icc/ivr/tree/{treeId}/node",
-      { name: "NODE_NAME", parentId: "PARENT_NODE_ID" },
+      "/admin/pcc/ivr-trees/{treeId}/nodes",
+      { treeId: "TREE_ID", message: "NODE_MESSAGE" },
+      (b) => {
+        const { treeId, ...rest } = b as { treeId: string };
+        return adminApi.addIvrNode(treeId, rest);
+      },
     ),
   },
   { key: "ivr-tree", label: "IVR Tree", render: () => <DualEditor spec={IVR_TREE_SPEC} /> },

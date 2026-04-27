@@ -433,3 +433,22 @@ export const IVR_TREE_SPEC = new PccResource(
   adminApi.ivrTree,
   { name: "TREE_NAME" },
 );
+
+export const SIP_ACCOUNT_SPEC = new PccResource(
+  "sip-account",
+  "SIP account management",
+  "/v1/sip/account",
+  [
+    { key: "agentId", label: "agentId", type: "string", required: true },
+    { key: "password", label: "password", type: "string", required: true },
+  ],
+  [
+    { key: "id", label: "ID" },
+    { key: "username", label: "Username" },
+    { key: "domain", label: "Domain" },
+    { key: "port", label: "Port" },
+  ],
+  "sip_accounts",
+  adminApi.sipAccount,
+  { agentId: "AGENT_ID", password: "SIP_PASSWORD" },
+);

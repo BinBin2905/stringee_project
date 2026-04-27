@@ -69,58 +69,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   }
 
-  // ── PCC / ICC CRUD resources ──────────────────────────────────────────
-  // `pccResource(slug, restPath)` wires GET list, POST create, PUT/DELETE /:id
-  // for one top-level ICC resource. Nested resources (e.g. /queue/{id}/routing)
-  // aren't covered here — add them individually when you spec them.
-  const pccResource = (slug: string, restPath: string): void => {
-    const ep = (suffix = ""): StringeeEndpoint => ({
-      method: "GET",
-      path: `${restPath}${suffix}`,
-      base: env.stringeePccApiBase,
-    });
-
-    fastify.get(`/pcc/${slug}`, async (req, reply) => {
-      const qs = req.url.includes("?")
-        ? req.url.slice(req.url.indexOf("?") + 1)
-        : "";
-      return send(
-        reply,
-        await proxyTo({ ...ep(), method: "GET" }, qs ? { query: qs } : {}),
-      );
-    });
-    fastify.post(`/pcc/${slug}`, async (req, reply) =>
-      send(reply, await proxyTo({ ...ep(), method: "POST" }, { body: req.body })),
-    );
-    fastify.put<{ Params: { id: string } }>(
-      `/pcc/${slug}/:id`,
-      async (req, reply) =>
-        send(
-          reply,
-          await proxyTo(
-            { ...ep(`/${encodeURIComponent(req.params.id)}`), method: "PUT" },
-            { body: req.body },
-          ),
-        ),
-    );
-    fastify.delete<{ Params: { id: string } }>(
-      `/pcc/${slug}/:id`,
-      async (req, reply) =>
-        send(
-          reply,
-          await proxyTo({
-            ...ep(`/${encodeURIComponent(req.params.id)}`),
-            method: "DELETE",
-          }),
-        ),
-    );
-  };
-
-  pccResource("agent", "/v1/agent");
-  pccResource("group", "/v1/group");
-  pccResource("queue", "/v1/queue");
-  pccResource("number", "/v1/number");
-  pccResource("ivr-tree", "/v1/ivr/tree");
+  // PCC / ICC CRUD lives in routes/pcc.ts (mounted at /admin/pcc).
 
   // Binary passthrough: recording file. `?format=` sets the download ext.
   fastify.get<{
