@@ -36,8 +36,6 @@ export interface TokenPayload {
   iat: number;
   userId?: string;
   rest_api?: boolean;
-  // Set true when the caller requested a PCC-agent client token.
-  pcc?: boolean;
 }
 
 // What we persist per-user in localStorage
@@ -48,8 +46,6 @@ export interface SavedToken {
   recordFormat: RecordFormat;
   recordStereo: boolean;
   savedAt: number;
-  // Mirrors the JWT claim — cached so UI doesn't decode on every read.
-  pcc?: boolean;
 }
 
 // SDK call options used by lib/stringee-sdk.ts
@@ -77,40 +73,4 @@ export interface StringeeResponse<T = unknown> {
 export interface ApiResult<T = unknown> {
   status: number;
   data: T;
-}
-
-// ── PCC / ICC Agent ──────────────────────────────────────────────────────
-// Shape per developer.stringee.com/docs/icc-rest-api/contact-center-agent-management
-export interface Agent {
-  id: string;
-  project?: number;
-  account?: string;
-  name: string;
-  stringee_user_id: string;
-  manual_status?: string;
-  system_status?: string;
-  device_status?: string;
-  last_time_pickup?: number;
-  last_time_support_call_ended?: number;
-}
-
-export interface AgentCreate {
-  name: string;
-  stringee_user_id: string;
-  manual_status?: string;
-  routing_type?: number;
-  phone_number?: string;
-}
-
-export type AgentUpdate = Partial<AgentCreate> & {
-  system_status?: string;
-  webhook_status?: string;
-};
-
-export interface AgentListData {
-  totalAgents: number;
-  totalPages: number;
-  currentPage: number;
-  limit: number;
-  agents: Agent[];
 }

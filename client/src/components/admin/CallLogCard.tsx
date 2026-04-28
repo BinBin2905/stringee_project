@@ -1,5 +1,6 @@
 import { useCallback, useState, type FC } from "react";
 import { adminApi } from "@/api/admin";
+import { toast } from "@/lib/toast";
 import type { StringeeResponse } from "@/types";
 
 type CallRecord = Record<string, unknown> & {
@@ -66,23 +67,29 @@ const CallLogCard: FC = () => {
       try {
         const res = await adminApi.callLog(buildQuery(limit, cursor));
         if (res.status < 200 || res.status >= 300) {
-          setError(`HTTP ${res.status}`);
+          const msg = `HTTP ${res.status}`;
+          setError(msg);
           setCalls([]);
           setNext(null);
+          toast.error(`Call log — ${msg}`);
           return;
         }
         const body = res.data as StringeeResponse<CallLogData>;
         if (body?.r !== 0) {
-          setError(body?.message ?? "Unknown error");
+          const msg = body?.message ?? "Unknown error";
+          setError(msg);
           setCalls([]);
           setNext(null);
+          toast.error(`Call log — ${msg}`);
           return;
         }
         setCalls(body.data?.calls ?? []);
         setNext(body.data?.search_after ?? null);
         setTotal(body.data?.totalCalls ?? null);
       } catch (err) {
-        setError((err as Error).message);
+        const msg = (err as Error).message;
+        setError(msg);
+        toast.error(`Call log — ${msg}`);
       } finally {
         setLoading(false);
       }

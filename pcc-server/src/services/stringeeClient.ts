@@ -1,5 +1,5 @@
 import { env } from "../env.js";
-import { generateRestApiToken } from "./tokenService.js";
+import { generatePccApiToken } from "./tokenService.js";
 import type { HttpMethod, ProxyResult } from "../types/api.js";
 
 export interface RequestOptions {
@@ -7,9 +7,6 @@ export interface RequestOptions {
   query?: string;
 }
 
-// Single HTTP client for any Stringee REST surface (Call API, PCC/ICC).
-// Reuse by instantiating with a different `baseUrl`. Token is regenerated
-// per request — TTLs are short, and Stringee accepts any valid signed JWT.
 export class StringeeClient {
   constructor(
     public readonly baseUrl: string,
@@ -25,7 +22,7 @@ export class StringeeClient {
     const res = await fetch(`${this.baseUrl}${path}${qs}`, {
       method,
       headers: {
-        "X-STRINGEE-AUTH": generateRestApiToken(this.tokenTtl),
+        "X-STRINGEE-AUTH": generatePccApiToken(this.tokenTtl),
         Accept: "application/json",
         ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
       },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FC } from "react";
-import { Link } from "react-router";
 import type { ApiResult } from "@/types";
+import { toast } from "@/lib/toast";
 import ConfirmModal from "../ConfirmModal";
 import FieldInput from "./FieldInput";
 import {
@@ -14,8 +14,6 @@ import type { ResourceSpec } from "./specs";
 
 type Props = {
   spec: ResourceSpec;
-  // When true, list-only view with an "Edit on PCC →" affordance.
-  readonly?: boolean;
 };
 
 type Pending =
@@ -27,7 +25,7 @@ type Pending =
 const dash = (v: unknown): string =>
   v === undefined || v === null || v === "" ? "—" : String(v);
 
-const ResourceManager: FC<Props> = ({ spec, readonly }) => {
+const ResourceManager: FC<Props> = ({ spec }) => {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -47,6 +45,9 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
     if (res.status < 200 || res.status >= 300) {
       setError(`HTTP ${res.status}`);
       setRows([]);
+      toast.error(
+        `${spec.title} — load failed (HTTP ${res.status || "network error"})`,
+      );
     } else {
       const { rows: r, totalPages: tp } = spec.extractRows(res.data);
       setRows(r);
@@ -73,6 +74,7 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
     const r = bodyFromForm(spec.fields, form);
     if (isErr(r)) {
       setError(r.error);
+      toast.warning(r.error);
       return;
     }
     setError("");
@@ -90,16 +92,25 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
     if (!pending) return;
     setBusy(true);
     let res: ApiResult;
-    if (pending.kind === "create") res = await spec.create(pending.body);
-    else if (pending.kind === "update")
+    const kind = pending.kind;
+    if (kind === "create") res = await spec.create(pending.body);
+    else if (kind === "update")
       res = await spec.update(pending.id, pending.body);
     else res = await spec.remove(String(pending.row[spec.idKey] ?? ""));
     setLastResult(res);
     setBusy(false);
     setPending(null);
-    if (res.status >= 200 && res.status < 300) {
+    const ok = res.status >= 200 && res.status < 300;
+    const verb =
+      kind === "create" ? "Created" : kind === "update" ? "Updated" : "Deleted";
+    if (ok) {
+      toast.success(`${verb} ${spec.name} — ${res.status}`);
       resetForm();
       void load();
+    } else {
+      toast.error(
+        `${verb} ${spec.name} failed — HTTP ${res.status || "network error"}`,
+      );
     }
   };
 
@@ -129,58 +140,54 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
 
   return (
     <div className="space-y-4">
-      {/* ── Form (hidden in readonly mode) ──────────────────────────── */}
-      {!readonly && (
-        <div className="card bg-base-100 border border-base-300 shadow-sm">
-          <div className="card-body gap-3">
-            <div className="flex items-center gap-2">
-              <span className="badge badge-neutral">
-                {editId ? "PUT" : "POST"}
-              </span>
-              <h3 className="card-title text-base">
-                {editId ? `Update ${spec.name} ${editId}` : `Create ${spec.name}`}
-              </h3>
-              {editId && (
-                <button
-                  className="btn btn-ghost btn-xs ml-auto"
-                  onClick={resetForm}
-                >
-                  Cancel edit
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {spec.fields.map((f) => (
-                <FieldInput
-                  key={f.key}
-                  field={f}
-                  value={form[f.key]}
-                  onChange={(v) => setForm({ ...form, [f.key]: v })}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="btn btn-primary btn-sm" onClick={stageSubmit}>
-                {editId ? "Review update…" : "Review create…"}
+      <div className="card bg-base-100 border border-base-300 shadow-sm">
+        <div className="card-body gap-3">
+          <div className="flex items-center gap-2">
+            <span className="badge badge-neutral">
+              {editId ? "PUT" : "POST"}
+            </span>
+            <h3 className="card-title text-base">
+              {editId ? `Update ${spec.name} ${editId}` : `Create ${spec.name}`}
+            </h3>
+            {editId && (
+              <button
+                className="btn btn-ghost btn-xs ml-auto"
+                onClick={resetForm}
+              >
+                Cancel edit
               </button>
-              {error && <span className="text-error text-xs">{error}</span>}
-              {lastResult && (
-                <span
-                  className={`badge badge-sm ml-auto ${
-                    lastResult.status >= 200 && lastResult.status < 300
-                      ? "badge-success"
-                      : "badge-error"
-                  }`}
-                >
-                  last: {lastResult.status}
-                </span>
-              )}
-            </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {spec.fields.map((f) => (
+              <FieldInput
+                key={f.key}
+                field={f}
+                value={form[f.key]}
+                onChange={(v) => setForm({ ...form, [f.key]: v })}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="btn btn-primary btn-sm" onClick={stageSubmit}>
+              {editId ? "Review update…" : "Review create…"}
+            </button>
+            {error && <span className="text-error text-xs">{error}</span>}
+            {lastResult && (
+              <span
+                className={`badge badge-sm ml-auto ${
+                  lastResult.status >= 200 && lastResult.status < 300
+                    ? "badge-success"
+                    : "badge-error"
+                }`}
+              >
+                last: {lastResult.status}
+              </span>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* ── List ───────────────────────────────────────────────────── */}
       <div className="card bg-base-100 border border-base-300 shadow-sm">
         <div className="card-body gap-3">
           <div className="flex items-center gap-2 flex-wrap">
@@ -200,17 +207,7 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
                 "Refresh"
               )}
             </button>
-            {readonly && (
-              <Link to="/pcc" className="btn btn-primary btn-xs">
-                Manage on PCC →
-              </Link>
-            )}
           </div>
-          {error && readonly && (
-            <div role="alert" className="alert alert-error text-xs py-2">
-              <span>{error}</span>
-            </div>
-          )}
 
           <div className="overflow-x-auto">
             <table className="table table-zebra table-sm">
@@ -219,14 +216,14 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
                   {spec.columns.map((c) => (
                     <th key={c.key}>{c.label}</th>
                   ))}
-                  {!readonly && <th className="w-px" />}
+                  <th className="w-px" />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={spec.columns.length + (readonly ? 0 : 1)}
+                      colSpan={spec.columns.length + 1}
                       className="text-center text-base-content/50"
                     >
                       No rows.
@@ -243,22 +240,20 @@ const ResourceManager: FC<Props> = ({ spec, readonly }) => {
                         {dash(c.render ? c.render(row) : row[c.key])}
                       </td>
                     ))}
-                    {!readonly && (
-                      <td className="whitespace-nowrap">
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={() => startEdit(row)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-xs text-error"
-                          onClick={() => stageDelete(row)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    )}
+                    <td className="whitespace-nowrap">
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => startEdit(row)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-xs text-error"
+                        onClick={() => stageDelete(row)}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

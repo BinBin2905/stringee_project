@@ -1,4 +1,5 @@
 import { storage } from "@/lib/storage";
+import { toast } from "@/lib/toast";
 import { getClientToken } from "@/api/auth";
 import type { CallMediaOptions, MakeCallOptions } from "@/types";
 
@@ -28,8 +29,12 @@ export function connectToStringee(token: string): StringeeClient {
       const saved = storage.get(activeId);
       if (saved) storage.set({ ...saved, token: newToken, savedAt: Date.now() });
       client?.connect(newToken);
+      toast.success("Token refreshed");
     } catch (err) {
       console.error("requestnewtoken failed", err);
+      toast.error(
+        `Token refresh failed — ${err instanceof Error ? err.message : "unknown error"}`,
+      );
     }
   });
 

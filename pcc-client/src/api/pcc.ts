@@ -5,7 +5,7 @@ import type { ApiResult } from "@/types";
 // One client rooted at the server's /admin/pcc prefix.
 export const pccClient = new ApiClient("/admin/pcc");
 
-// PCC / ICC resources. Slugs match server/src/routes/pcc.ts.
+// PCC / ICC resources. Slugs match pcc-server/src/routes/pcc.ts.
 export const pcc = {
   agent: new ApiResource(pccClient, "/agents"),
   queue: new ApiResource(pccClient, "/queues"),
@@ -15,7 +15,6 @@ export const pcc = {
   sipAccount: new ApiResource(pccClient, "/sip-accounts"),
 };
 
-// One-off endpoints (not standard CRUD).
 export const pccCalls = {
   callout: (body: unknown): Promise<ApiResult> =>
     pccClient.request("POST", "/calls/callout", body),

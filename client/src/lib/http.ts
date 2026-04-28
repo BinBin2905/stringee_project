@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
 import { storage } from "@/lib/storage";
+import { toast } from "@/lib/toast";
 
 // Shared axios — points at the demo project's base URL.
 // Adds the active user's token as X-STRINGEE-AUTH and the ngrok-skip header
@@ -26,6 +27,10 @@ http.interceptors.response.use(
       const id = storage.getActiveUserId();
       if (id) storage.remove(id);
       storage.clearActiveUserId();
+      toast.error("Session expired — please fetch a new token");
+    } else if (!error.response) {
+      const url = error.config?.baseURL ?? "server";
+      toast.error(`Network error — cannot reach ${url}`);
     }
     return Promise.reject(error);
   },

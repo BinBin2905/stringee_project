@@ -1,9 +1,6 @@
 import type { StringeeClient } from "./stringeeClient.js";
 import type { ProxyResult } from "../types/api.js";
 
-// Generic REST resource: list / get / create / update / remove.
-// Subclassing is rarely needed — instantiate per resource path. For nested
-// paths (e.g. /v1/group/{id}/queue/{qid}) use `sub()`.
 export class StringeeResource {
   constructor(
     private readonly client: StringeeClient,
@@ -35,7 +32,6 @@ export class StringeeResource {
     );
   }
 
-  // Compose a child resource: pcc.group.sub(groupId, "queue") → /v1/group/{id}/queue
   sub(id: string, suffix: string): StringeeResource {
     const tail = suffix.replace(/^\//, "");
     return new StringeeResource(

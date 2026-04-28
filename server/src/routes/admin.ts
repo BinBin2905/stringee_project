@@ -1,9 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { env } from "../env.js";
-import {
-  generatePccApiToken,
-  generateRestApiToken,
-} from "../services/tokenService.js";
+import { generateRestApiToken } from "../services/tokenService.js";
 import { proxyBinary, proxyTo } from "../services/stringeeProxy.js";
 import type { ProxyResult, StringeeEndpoint } from "../types/api.js";
 
@@ -42,16 +39,6 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }),
   );
 
-  // PCC / ICC token — identical to rest-token; named separately so consumers
-  // who reach for PCC auth explicitly can fetch this route.
-  fastify.get("/pcc-token", async (_req, reply) =>
-    reply.send({
-      token: generatePccApiToken(env.restTokenTtlSec),
-      expiresIn: env.restTokenTtlSec,
-      kind: "pcc-rest-api",
-    }),
-  );
-
   // Bind the declarative table.
   for (const [route, spec] of Object.entries(ENDPOINTS)) {
     if (spec.method === "POST") {
@@ -68,8 +55,6 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       });
     }
   }
-
-  // PCC / ICC CRUD lives in routes/pcc.ts (mounted at /admin/pcc).
 
   // Binary passthrough: recording file. `?format=` sets the download ext.
   fastify.get<{

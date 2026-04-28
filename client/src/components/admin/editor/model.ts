@@ -28,12 +28,6 @@ export interface ArrayField extends BaseField {
 
 export type Field = LeafField | ObjectField | ArrayField;
 
-export interface Column {
-  key: string;
-  label: string;
-  render?: (row: Record<string, unknown>) => string;
-}
-
 // Leaves are strings; containers mirror the field tree.
 export type FormValue = string | FormValue[] | { [k: string]: FormValue };
 export type FormState = Record<string, FormValue>;

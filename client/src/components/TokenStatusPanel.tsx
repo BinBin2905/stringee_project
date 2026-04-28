@@ -7,11 +7,12 @@ import {
   storage,
   STORAGE_CHANGED,
 } from "@/lib/storage";
+import { toast } from "@/lib/toast";
 import type { SavedToken, TokenPayload } from "@/types";
 
-// Fixed left-side info panel — shows the current client token (with PCC
-// badge if applicable), lets you fetch / clear the REST token, and logs
-// out of the client session. Hidden until a client token exists.
+// Fixed left-side info panel — shows the current client token, lets you
+// fetch / clear the REST token, and logs out of the client session.
+// Hidden until a client token exists.
 
 type Snapshot = {
   client: (SavedToken & { info: TokenPayload | null }) | null;
@@ -71,8 +72,10 @@ const TokenStatusPanel: FC = () => {
     if (res.status >= 200 && res.status < 300) {
       const body = res.data as { token: string; expiresIn: number };
       restTokenStorage.set(body.token, body.expiresIn);
+      toast.success("REST token fetched");
     } else {
       setError(`HTTP ${res.status}`);
+      toast.error(`REST token fetch failed — HTTP ${res.status}`);
     }
   }, []);
 
@@ -82,12 +85,12 @@ const TokenStatusPanel: FC = () => {
     storage.clearActiveUserId();
     restTokenStorage.clear();
     navigate("/");
+    toast.info("Logged out");
   }, [navigate]);
 
   const client = snap.client;
   if (!client) return null;
 
-  const isPcc = !!client.info?.pcc;
   const clientExp = client.info?.exp ? client.info.exp * 1000 : 0;
   const clientExpired = clientExp > 0 && clientExp < Date.now();
 
@@ -95,17 +98,11 @@ const TokenStatusPanel: FC = () => {
     <aside className="fixed left-3 bottom-3 z-40 w-72 max-w-[calc(100vw-1.5rem)]">
       {/* Avatar toggle (always rendered, collapses the panel) */}
       <button
-        className={`absolute -top-2 -right-2 z-10 avatar placeholder rounded-full ring ring-base-100 ${
-          isPcc ? "ring-primary" : "ring-base-300"
-        }`}
+        className="absolute -top-2 -right-2 z-10 avatar placeholder rounded-full ring ring-base-300"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Collapse token panel" : "Expand token panel"}
       >
-        <div
-          className={`${
-            isPcc ? "bg-primary text-primary-content" : "bg-neutral text-neutral-content"
-          } w-10 rounded-full`}
-        >
+        <div className="bg-neutral text-neutral-content w-10 rounded-full">
           <span className="text-xs font-semibold">
             {initial(client.userId)}
           </span>
@@ -117,11 +114,7 @@ const TokenStatusPanel: FC = () => {
           <div className="card-body gap-3 p-4">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold">Signed in</h3>
-              {isPcc ? (
-                <span className="badge badge-primary badge-sm">PCC</span>
-              ) : (
-                <span className="badge badge-ghost badge-sm">Client</span>
-              )}
+              <span className="badge badge-ghost badge-sm">Client</span>
               <button
                 className="btn btn-ghost btn-xs ml-auto"
                 onClick={() => setOpen(false)}

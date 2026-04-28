@@ -1,10 +1,8 @@
 import { type FC } from "react";
+import { adminApi } from "@/api/admin";
 import TabView, { type Tab } from "../admin/TabView";
 import JsonApiCard from "../admin/JsonApiCard";
-import { shellCard } from "../admin/shell";
-import { adminApi } from "@/api/admin";
 import DualEditor from "../admin/editor/DualEditor";
-import PCCGuard from "../PCCGuard";
 import {
   AGENT_SPEC,
   GROUP_SPEC,
@@ -36,9 +34,6 @@ const wiredCard =
     />
   );
 
-// ── PCC subtabs — one per section in the PCC overview sidebar ────────────
-// Wired CRUD resources get a DualEditor (Table ↔ JSON). Un-specced sections
-// stay as JSON-only shells.
 const TABS: Tab[] = [
   {
     key: "pcc-token",
@@ -48,37 +43,17 @@ const TABS: Tab[] = [
         title="Generate PCC / ICC REST API token"
         method="GET"
         path="/admin/pcc-token"
-        description="Token for the Programmable Contact Center REST API (agents, queues, IVR, routing). Byte-identical to the Call REST token — Stringee dispatches on URL, not claim."
+        description="Token for the Programmable Contact Center REST API (agents, queues, IVR, routing)."
         initialBody="{}"
         onSend={() => adminApi.pccToken()}
       />
     ),
   },
   {
-    key: "blacklist",
-    label: "Blacklist",
-    render: shellCard(
-      "Blacklist number management",
-      "POST",
-      "/v1/icc/blacklist",
-      { number: "BLOCKED_NUMBER", reason: "spam" },
-    ),
-  },
-  {
-    key: "call-settings",
-    label: "Call Settings",
-    render: shellCard(
-      "Call settings",
-      "POST",
-      "/v1/icc/call-settings",
-      { recording: true, maxRingSec: 30 },
-    ),
-  },
-  {
-    key: "make-call-to-agent",
-    label: "Make Call To Agent",
+    key: "callout",
+    label: "Callout (agent → customer)",
     render: wiredCard(
-      "Make call to an agent, then connect to a phone",
+      "Outbound: route to agent then customer",
       "POST",
       "/admin/pcc/calls/callout",
       {
@@ -91,22 +66,16 @@ const TABS: Tab[] = [
       (b) => adminApi.callout(b),
     ),
   },
+  { key: "agent", label: "Agent", render: () => <DualEditor spec={AGENT_SPEC} /> },
+  { key: "group", label: "Group", render: () => <DualEditor spec={GROUP_SPEC} /> },
+  { key: "queue", label: "Queue", render: () => <DualEditor spec={QUEUE_SPEC} /> },
+  { key: "number", label: "Number", render: () => <DualEditor spec={NUMBER_SPEC} /> },
+  { key: "ivr-tree", label: "IVR Tree", render: () => <DualEditor spec={IVR_TREE_SPEC} /> },
   {
     key: "sip-account",
     label: "SIP Account",
     render: () => <DualEditor spec={SIP_ACCOUNT_SPEC} />,
   },
-  {
-    key: "transfer",
-    label: "Transfer Call",
-    render: shellCard(
-      "Transfer call (PCC)",
-      "POST",
-      "/v1/icc/call/transfer",
-      { callId: "YOUR_CALL_ID", to: { type: "agent", id: "AGENT_ID" } },
-    ),
-  },
-  { key: "number", label: "Number", render: () => <DualEditor spec={NUMBER_SPEC} /> },
   {
     key: "group-routing",
     label: "Group Routing",
@@ -124,33 +93,6 @@ const TABS: Tab[] = [
       },
     ),
   },
-  { key: "queue", label: "Queue", render: () => <DualEditor spec={QUEUE_SPEC} /> },
-  {
-    key: "group-agent",
-    label: "Group Agents",
-    render: shellCard(
-      "Manage agents in a group",
-      "POST",
-      "/v1/icc/group/{groupId}/agent",
-      { agentId: "AGENT_ID" },
-    ),
-  },
-  { key: "group", label: "Group", render: () => <DualEditor spec={GROUP_SPEC} /> },
-  { key: "agent", label: "Agent", render: () => <DualEditor spec={AGENT_SPEC} /> },
-  {
-    key: "ivr-keypress",
-    label: "IVR Keypress",
-    render: wiredCard(
-      "IVR node keypress management",
-      "POST",
-      "/admin/pcc/ivr-nodes/{nodeId}/keypresses",
-      { nodeId: "NODE_ID", key: "1", action: "GOTO_NODE" },
-      (b) => {
-        const { nodeId, ...rest } = b as { nodeId: string };
-        return adminApi.configureIvrKeypress(nodeId, rest);
-      },
-    ),
-  },
   {
     key: "ivr-tree-node",
     label: "IVR Tree Node",
@@ -165,21 +107,33 @@ const TABS: Tab[] = [
       },
     ),
   },
-  { key: "ivr-tree", label: "IVR Tree", render: () => <DualEditor spec={IVR_TREE_SPEC} /> },
+  {
+    key: "ivr-keypress",
+    label: "IVR Keypress",
+    render: wiredCard(
+      "IVR node keypress management",
+      "POST",
+      "/admin/pcc/ivr-nodes/{nodeId}/keypresses",
+      { nodeId: "NODE_ID", key: "1", action: "GOTO_NODE" },
+      (b) => {
+        const { nodeId, ...rest } = b as { nodeId: string };
+        return adminApi.configureIvrKeypress(nodeId, rest);
+      },
+    ),
+  },
 ];
 
 const PCCPage: FC = () => (
-  <PCCGuard>
-    <main className="mx-auto max-w-4xl px-4 py-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Stringee PCC</h1>
-        <p className="text-sm text-base-content/60">
-          Integrable Contact Center reference — one tab per section in the PCC overview.
-        </p>
-      </div>
-      <TabView tabs={TABS} />
-    </main>
-  </PCCGuard>
+  <main className="mx-auto max-w-4xl px-4 py-6 space-y-4">
+    <div>
+      <h1 className="text-2xl font-bold">Stringee PCC</h1>
+      <p className="text-sm text-base-content/60">
+        Programmable Contact Center management — agents, queues, IVR,
+        routing, callout.
+      </p>
+    </div>
+    <TabView tabs={TABS} />
+  </main>
 );
 
 export default PCCPage;

@@ -9,7 +9,6 @@ const send = (reply: FastifyReply, r: ProxyResult): FastifyReply =>
 const rawQuery = (url: string): string =>
   url.includes("?") ? url.slice(url.indexOf("?") + 1) : "";
 
-// Mount the standard 5-route CRUD surface for one resource.
 function mount(
   fastify: FastifyInstance,
   slug: string,
@@ -37,7 +36,6 @@ function mount(
 }
 
 export default async function pccRoutes(fastify: FastifyInstance) {
-  // ── CRUD for top-level PCC resources ────────────────────────────────
   mount(fastify, "agents", pcc.agent);
   mount(fastify, "queues", pcc.queue);
   mount(fastify, "groups", pcc.group);
@@ -45,7 +43,6 @@ export default async function pccRoutes(fastify: FastifyInstance) {
   mount(fastify, "ivr-trees", pcc.ivrTree);
   mount(fastify, "sip-accounts", pcc.sipAccount);
 
-  // ── Outbound call (route to agent then customer) ────────────────────
   fastify.post("/calls/callout", async (req, reply) =>
     send(
       reply,
@@ -53,7 +50,6 @@ export default async function pccRoutes(fastify: FastifyInstance) {
     ),
   );
 
-  // ── Group ↔ Queue assignment ────────────────────────────────────────
   fastify.post<{ Params: { groupId: string; queueId: string } }>(
     "/groups/:groupId/queues/:queueId",
     async (req, reply) =>
@@ -76,7 +72,6 @@ export default async function pccRoutes(fastify: FastifyInstance) {
       ),
   );
 
-  // ── IVR: add node to tree, configure keypress on node ───────────────
   fastify.post<{ Params: { treeId: string } }>(
     "/ivr-trees/:treeId/nodes",
     async (req, reply) =>

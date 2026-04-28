@@ -2,7 +2,7 @@ import type { ApiClient } from "./apiClient";
 import type { ApiResult } from "@/types";
 
 // Generic REST resource: list / get / create / update / remove + sub() for
-// nested paths. Mirrors server/src/services/stringeeResource.ts.
+// nested paths. Mirrors pcc-server/src/services/stringeeResource.ts.
 export class ApiResource {
   private readonly client: ApiClient;
   readonly path: string;
@@ -35,7 +35,6 @@ export class ApiResource {
     );
   }
 
-  // Compose a child resource: pcc.group.sub(groupId, "queues") → /groups/{id}/queues
   sub(id: string, suffix: string): ApiResource {
     const tail = suffix.replace(/^\//, "");
     return new ApiResource(

@@ -18,8 +18,6 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN?.split(",").map((s) => s.trim()),
 
   stringeeApiBase: process.env.BASE_URL ?? "https://api.stringee.com",
-  // PCC / ICC REST API — different host, same JWT.
-  stringeePccApiBase: process.env.PCC_BASE_URL ?? "https://icc-api.stringee.com",
   stringeeKeySid: required("STRINGEE_API_KEY_SID"),
   stringeeKeySecret: required("STRINGEE_API_KEY_SECRET"),
   stringeeHotline: process.env.STRINGEE_HOTLINE_NUMBER ?? "",

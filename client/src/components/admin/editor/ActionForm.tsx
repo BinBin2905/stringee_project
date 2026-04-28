@@ -1,5 +1,6 @@
 import { useState, type FC } from "react";
 import type { ApiResult } from "@/types";
+import { toast } from "@/lib/toast";
 import ConfirmModal from "../ConfirmModal";
 import FieldInput from "./FieldInput";
 import { bodyFromForm, formFromBody, isErr, type FormState } from "./model";
@@ -20,6 +21,7 @@ const ActionForm: FC<{ spec: ActionSpec }> = ({ spec }) => {
     const r = bodyFromForm(spec.fields, form);
     if (isErr(r)) {
       setError(r.error);
+      toast.warning(r.error);
       return;
     }
     setError("");
@@ -33,6 +35,12 @@ const ActionForm: FC<{ spec: ActionSpec }> = ({ spec }) => {
     setLastResult(res);
     setBusy(false);
     setPending(null);
+    const ok = res.status >= 200 && res.status < 300;
+    if (ok) toast.success(`${spec.title} — ${res.status}`);
+    else
+      toast.error(
+        `${spec.title} failed — HTTP ${res.status || "network error"}`,
+      );
   };
 
   return (

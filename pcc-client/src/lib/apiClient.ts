@@ -4,9 +4,8 @@ import type { ApiResult } from "@/types";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
-// Thin OOP wrapper over the shared axios instance. Returns { status, data }
+// Thin wrapper over the shared axios instance. Returns { status, data }
 // for both success AND error responses so callers don't need try/catch.
-// Mirrors server/src/services/stringeeClient.ts.
 export class ApiClient {
   readonly basePath: string;
 
@@ -27,6 +26,7 @@ export class ApiClient {
         method,
         data: body,
       });
+      console.log(res);
       return { status: res.status, data: res.data };
     } catch (err) {
       if (axios.isAxiosError(err) && err.response) {

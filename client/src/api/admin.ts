@@ -1,7 +1,5 @@
 import axios from "axios";
 import { http } from "@/lib/http";
-import type { ApiResource } from "@/lib/apiResource";
-import { pcc, pccCalls, pccGroups, pccIvr } from "./pcc";
 import type { ApiResult } from "@/types";
 
 // ── Declarative endpoint table, matches server/src/routes/admin.ts ──
@@ -41,18 +39,6 @@ async function call<T = unknown>(
   }
 }
 
-// Adapt an ApiResource to the legacy CrudApi shape used by editor specs:
-// { list(page, limit), create, update, delete }.
-function legacy(resource: ApiResource) {
-  return {
-    list: (page = 1, limit = 20) =>
-      resource.list(`page=${page}&limit=${limit}`),
-    create: (body: unknown) => resource.create(body),
-    update: (id: string, body: unknown) => resource.update(id, body),
-    delete: (id: string) => resource.remove(id),
-  };
-}
-
 export const adminApi = {
   // Generic JSON-body POSTs — keyed by endpoint name
   post<T = unknown>(key: Extract<EndpointKey, `${string}`>, body: unknown) {
@@ -61,7 +47,6 @@ export const adminApi = {
 
   // REST token debug
   restToken: () => call("GET", "/rest-token"),
-  pccToken: () => call("GET", "/pcc-token"),
 
   // Call log — accepts a raw query string so `search_after[]=…&search_after[]=…`
   // repeats survive intact.
@@ -72,21 +57,6 @@ export const adminApi = {
     const base = `${import.meta.env.VITE_BASE_DEMO_PROJECT_URL}/admin/recording/${encodeURIComponent(recordId)}`;
     return format ? `${base}?format=${encodeURIComponent(format)}` : base;
   },
-
-  // ── PCC / ICC CRUD — backed by the OOP layer in api/pcc.ts ───────────
-  agent: legacy(pcc.agent),
-  group: legacy(pcc.group),
-  queue: legacy(pcc.queue),
-  number: legacy(pcc.number),
-  ivrTree: legacy(pcc.ivrTree),
-  sipAccount: legacy(pcc.sipAccount),
-
-  // ── PCC / ICC special endpoints (non-CRUD) ───────────────────────────
-  callout: pccCalls.callout,
-  assignGroupToQueue: pccGroups.assignToQueue,
-  removeGroupFromQueue: pccGroups.removeFromQueue,
-  addIvrNode: pccIvr.addNode,
-  configureIvrKeypress: pccIvr.configureKeypress,
 };
 
 export type { EndpointKey };

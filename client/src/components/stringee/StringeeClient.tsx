@@ -9,6 +9,7 @@ import {
 import type { RecordFormat, SccoAction, TokenPayload } from "@/types";
 import { decodeToken } from "@/lib/jwt";
 import { storage } from "@/lib/storage";
+import { toast } from "@/lib/toast";
 import { getClientToken } from "@/api/auth";
 import {
   answerIncomingCall,
@@ -39,7 +40,6 @@ const StringeeClient: FC = () => {
   const [record, setRecord] = useState(false);
   const [recordFormat, setRecordFormat] = useState<RecordFormat>("mp3");
   const [recordStereo, setRecordStereo] = useState(false);
-  const [pcc, setPcc] = useState(false);
 
   const [callReady, setCallReady] = useState(false);
   const [inCall, setInCall] = useState(false);
@@ -67,7 +67,6 @@ const StringeeClient: FC = () => {
       setRecord(saved.record);
       setRecordFormat(saved.recordFormat);
       setRecordStereo(saved.recordStereo);
-      setPcc(!!info.pcc);
       setCallReady(true);
     } else {
       storage.remove(activeId);
@@ -76,7 +75,10 @@ const StringeeClient: FC = () => {
   }, []);
 
   useEffect(() => {
-    setIncomingCallHandler((call) => setIncomingCall(call));
+    setIncomingCallHandler((call) => {
+      setIncomingCall(call);
+      if (call) toast.info(`Incoming call from ${call.from}`);
+    });
     return () => {
       setIncomingCallHandler(null);
       hangupCall();
@@ -88,12 +90,13 @@ const StringeeClient: FC = () => {
     const trimmed = userId.trim();
     if (!trimmed) {
       setError("User ID required");
+      toast.warning("User ID required");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const fresh = await getClientToken(trimmed, pcc);
+      const fresh = await getClientToken(trimmed);
       const info = decodeToken(fresh);
       setToken(fresh);
       setTokenInfo(info);
@@ -105,28 +108,37 @@ const StringeeClient: FC = () => {
         recordFormat,
         recordStereo,
         savedAt: Date.now(),
-        pcc: !!info?.pcc,
       });
       storage.setActiveUserId(trimmed);
       connectToStringee(fresh);
+      toast.success(`Token fetched for ${trimmed}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(
+      const friendly =
         msg === "Failed to fetch" || msg.includes("Network")
           ? `Cannot reach ${serverUrl}`
-          : msg,
-      );
+          : msg;
+      setError(friendly);
+      toast.error(`Token fetch failed — ${friendly}`);
     } finally {
       setLoading(false);
     }
-  }, [userId, record, recordFormat, recordStereo, pcc, serverUrl]);
+  }, [userId, record, recordFormat, recordStereo, serverUrl]);
 
   const copyToken = useCallback(() => {
     if (!token) return;
-    navigator.clipboard.writeText(token).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(token).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast.success("Token copied to clipboard");
+      },
+      (err) => {
+        toast.error(
+          `Copy failed — ${err instanceof Error ? err.message : "clipboard unavailable"}`,
+        );
+      },
+    );
   }, [token]);
 
   const clearToken = useCallback(() => {
@@ -155,8 +167,16 @@ const StringeeClient: FC = () => {
   const handleMakeCall = useCallback(() => {
     const from = userId.trim();
     const to = callee.trim();
-    if (!from) return setError("Missing User ID (from)");
-    if (!to) return setError("Enter Callee ID first");
+    if (!from) {
+      setError("Missing User ID (from)");
+      toast.warning("Missing User ID (from)");
+      return;
+    }
+    if (!to) {
+      setError("Enter Callee ID first");
+      toast.warning("Enter Callee ID first");
+      return;
+    }
     try {
       makeCall({
         from,
@@ -165,14 +185,20 @@ const StringeeClient: FC = () => {
         remoteMedia: remoteAudioRef.current,
         onSignalingState: (s) => {
           setCallStatus(s.reason ?? `code ${s.code}`);
-          if (s.code === 6) setInCall(false);
+          if (s.code === 6) {
+            setInCall(false);
+            toast.info(`Call ended — ${s.reason ?? `code ${s.code}`}`);
+          }
         },
       });
       setInCall(true);
       setCallStatus("calling…");
       setError("");
+      toast.info(`Calling ${to}…`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Call failed");
+      const msg = err instanceof Error ? err.message : "Call failed";
+      setError(msg);
+      toast.error(`Call failed — ${msg}`);
     }
   }, [userId, callee]);
 
@@ -182,25 +208,31 @@ const StringeeClient: FC = () => {
       remoteMedia: remoteAudioRef.current,
       onSignalingState: (s) => {
         setCallStatus(s.reason ?? `code ${s.code}`);
-        if (s.code === 6) setInCall(false);
+        if (s.code === 6) {
+          setInCall(false);
+          toast.info(`Call ended — ${s.reason ?? `code ${s.code}`}`);
+        }
       },
     });
     setInCall(true);
     setIncomingCall(null);
     setCallStatus("in call");
     setError("");
+    toast.success("Call answered");
   }, [incomingCall]);
 
   const handleReject = useCallback(() => {
     rejectIncomingCall();
     setIncomingCall(null);
     setCallStatus("rejected");
+    toast.info("Incoming call rejected");
   }, []);
 
   const handleHangup = useCallback(() => {
     hangupCall();
     setInCall(false);
     setCallStatus("ended");
+    toast.info("Call hung up");
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -256,8 +288,6 @@ const StringeeClient: FC = () => {
         copied={copied}
         onCopy={copyToken}
         onClear={clearToken}
-        pcc={pcc}
-        onPccChange={setPcc}
       />
 
       <RecordingCard
