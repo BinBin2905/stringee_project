@@ -3,4 +3,4 @@ export interface ProxyResult<T = unknown> {
   body: T;
 }
 
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";

@@ -5,7 +5,10 @@ const header = { typ: "JWT", alg: "HS256", cty: "stringee-api;v=1" };
 
 // Client JWT — always carries `pcc: true` since this server only serves the
 // PCC surface. The UI uses it as a session marker.
-export function generateClientToken(userId: string, ttlSeconds: number): string {
+export function generateClientToken(
+  userId: string,
+  ttlSeconds: number,
+): string {
   const now = Math.floor(Date.now() / 1000);
   return signManualJwt({
     header,
@@ -14,7 +17,7 @@ export function generateClientToken(userId: string, ttlSeconds: number): string 
       iss: env.stringeeKeySid,
       userId,
       exp: now + ttlSeconds,
-      pcc: true,
+      icc_api: true,
     },
     secret: env.stringeeKeySecret,
   });

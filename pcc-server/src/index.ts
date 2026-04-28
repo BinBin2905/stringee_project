@@ -8,7 +8,7 @@ const server = fastify();
 await server.register(cors, {
   origin: env.corsOrigin ?? true,
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
 });
 await server.register(routes);
 

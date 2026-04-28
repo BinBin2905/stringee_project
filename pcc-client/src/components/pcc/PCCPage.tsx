@@ -3,6 +3,7 @@ import { adminApi } from "@/api/admin";
 import TabView, { type Tab } from "../admin/TabView";
 import JsonApiCard from "../admin/JsonApiCard";
 import DualEditor from "../admin/editor/DualEditor";
+import SoftphonePage from "../softphone/SoftphonePage";
 import {
   AGENT_SPEC,
   GROUP_SPEC,
@@ -121,10 +122,11 @@ const TABS: Tab[] = [
       },
     ),
   },
+  { key: "softphone", label: "Softphone", render: () => <SoftphonePage /> },
 ];
 
 const PCCPage: FC = () => (
-  <main className="mx-auto max-w-4xl px-4 py-6 space-y-4">
+  <main className="mx-auto max-w-6xl px-4 py-6 space-y-4">
     <div>
       <h1 className="text-2xl font-bold">Stringee PCC</h1>
       <p className="text-sm text-base-content/60">

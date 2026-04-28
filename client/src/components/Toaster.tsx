@@ -42,7 +42,7 @@ const Toaster: FC = () => {
           <span aria-hidden className="font-bold">
             {ICON[m.kind]}
           </span>
-          <span className="text-xs leading-snug break-words">{m.text}</span>
+          <span className="text-xs leading-snug wrap-break-word">{m.text}</span>
           <button
             className="btn btn-ghost btn-xs btn-circle"
             onClick={() => toastBus.dismiss(m.id)}

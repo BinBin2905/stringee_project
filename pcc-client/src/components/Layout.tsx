@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { decodeToken, formatTime } from "@/lib/jwt";
 import { storage, STORAGE_CHANGED } from "@/lib/storage";
 import { toast } from "@/lib/toast";
@@ -48,10 +48,13 @@ const Layout: FC = () => {
   return (
     <div className="min-h-screen bg-base-200 text-base-content">
       <div className="navbar bg-base-100 border-b border-base-300 px-4 shadow-sm gap-3">
-        <div className="flex-1">
+        <div className="flex-1 flex items-center gap-3">
           <span className="text-lg font-semibold tracking-tight">
             Stringee PCC
           </span>
+          <Link to="/softphone" className="btn btn-ghost btn-xs">
+            Softphone
+          </Link>
         </div>
         {saved && info && (
           <div className="flex items-center gap-2 text-xs">
