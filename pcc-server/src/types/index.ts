@@ -16,3 +16,7 @@ export * from "./sipAccount.js";
 export * from "./blacklist.js";
 export * from "./transferCall.js";
 export * from "./callout.js";
+export * from "./callSettings.js";
+export * from "./scco.js";
+export * from "./auth.js";
+export * from "./greetingFile.js";

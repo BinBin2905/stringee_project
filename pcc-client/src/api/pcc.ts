@@ -1,6 +1,13 @@
 import { ApiClient } from "@/lib/apiClient";
 import { ApiResource } from "@/lib/apiResource";
-import type { ApiResult } from "@/types";
+import type {
+  ApiResult,
+  GetCallSettingsResponse,
+  ListGroupAgentsResponse,
+  ListGroupRoutingsResponse,
+  UpdateCallSettingsRequest,
+  UpdateCallSettingsResponse,
+} from "@/types";
 
 // One client rooted at the server's /admin/pcc prefix.
 export const pccClient = new ApiClient("/admin/pcc");
@@ -18,6 +25,41 @@ export const pcc = {
 export const pccCalls = {
   callout: (body: unknown): Promise<ApiResult> =>
     pccClient.request("POST", "/calls/callout", body),
+};
+
+// Routing tables that connect a queue to its groups, and a group to
+// its agents. Both endpoints take a single query-string filter (?queue
+// or ?group) so they don't fit the generic ApiResource shape cleanly.
+export const pccRouting = {
+  groupRoutings: (
+    queueId: string,
+  ): Promise<ApiResult<ListGroupRoutingsResponse>> =>
+    pccClient.request<ListGroupRoutingsResponse>(
+      "GET",
+      "/group-routings",
+      undefined,
+      `queue=${encodeURIComponent(queueId)}`,
+    ),
+  groupAgents: (
+    groupId: string,
+  ): Promise<ApiResult<ListGroupAgentsResponse>> =>
+    pccClient.request<ListGroupAgentsResponse>(
+      "GET",
+      "/group-agents",
+      undefined,
+      `group=${encodeURIComponent(groupId)}`,
+    ),
+};
+
+// Project-level call settings — the four URLs shown in the Stringee
+// Call Settings dashboard (get_customer_info_url, event_url, etc.).
+export const pccCallSettings = {
+  get: (): Promise<ApiResult<GetCallSettingsResponse>> =>
+    pccClient.request<GetCallSettingsResponse>("GET", "/callsettings"),
+  update: (
+    body: UpdateCallSettingsRequest,
+  ): Promise<ApiResult<UpdateCallSettingsResponse>> =>
+    pccClient.request<UpdateCallSettingsResponse>("PUT", "/callsettings", body),
 };
 
 export const pccGroups = {

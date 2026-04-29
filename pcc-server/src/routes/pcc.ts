@@ -10,6 +10,9 @@ import type {
   BlacklistNumber,
   CalloutRequest,
   CalloutResponse,
+  GetCallSettingsResponse,
+  UpdateCallSettingsRequest,
+  UpdateCallSettingsResponse,
   CreateAgentRequest,
   CreateAgentResponse,
   CreateBlacklistNumberRequest,
@@ -322,6 +325,34 @@ export default async function pccRoutes(fastify: FastifyInstance) {
       await pccClient.request<RemoveAgentFromGroupResponse>(
         "DELETE",
         "/v1/manage-agents-in-group",
+        { body: req.body },
+      ),
+    ),
+  );
+
+  // Project-level call settings (the four URLs shown in the Stringee
+  // Call Settings dashboard). Stringee exposes them at /v1/callsettings
+  // — we just thread the existing PCC client through.
+  fastify.get<{ Reply: GetCallSettingsResponse }>(
+    "/callsettings",
+    async (_req, reply) =>
+      send(
+        reply,
+        await pccClient.request<GetCallSettingsResponse>(
+          "GET",
+          "/v1/callsettings",
+        ),
+      ),
+  );
+  fastify.put<{
+    Body: UpdateCallSettingsRequest;
+    Reply: UpdateCallSettingsResponse;
+  }>("/callsettings", async (req, reply) =>
+    send(
+      reply,
+      await pccClient.request<UpdateCallSettingsResponse>(
+        "PUT",
+        "/v1/callsettings",
         { body: req.body },
       ),
     ),

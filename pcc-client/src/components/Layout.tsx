@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { decodeToken, formatTime } from "@/lib/jwt";
 import { storage, STORAGE_CHANGED } from "@/lib/storage";
 import { toast } from "@/lib/toast";
@@ -52,9 +52,14 @@ const Layout: FC = () => {
           <span className="text-lg font-semibold tracking-tight">
             Stringee PCC
           </span>
-          <Link to="/softphone" className="btn btn-ghost btn-xs">
-            Softphone
-          </Link>
+          <a
+            href="/softphone"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-ghost btn-xs"
+          >
+            Softphone ↗
+          </a>
         </div>
         {saved && info && (
           <div className="flex items-center gap-2 text-xs">

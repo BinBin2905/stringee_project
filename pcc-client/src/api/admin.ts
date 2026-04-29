@@ -2,7 +2,9 @@ import axios from "axios";
 import { http } from "@/lib/http";
 import type { ApiResource } from "@/lib/apiResource";
 import { pcc, pccCalls, pccGroups, pccIvr } from "./pcc";
-import type { ApiResult } from "@/types";
+import type { ApiResult, RecordedPccEvent } from "@/types";
+
+export type { RecordedPccEvent } from "@/types";
 
 async function call<T = unknown>(
   method: "GET" | "POST" | "PUT" | "DELETE",
@@ -53,4 +55,12 @@ export const adminApi = {
   removeGroupFromQueue: pccGroups.removeFromQueue,
   addIvrNode: pccIvr.addNode,
   configureIvrKeypress: pccIvr.configureKeypress,
+
+  // Live PCC event feed surfaced by pcc-server.
+  recentEvents: (since?: number) =>
+    call<{ events: RecordedPccEvent[] }>(
+      "GET",
+      `/pcc/events/recent${since !== undefined ? `?since=${since}` : ""}`,
+    ),
+  clearEvents: () => call("DELETE", "/pcc/events"),
 };

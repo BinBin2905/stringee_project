@@ -3,7 +3,10 @@ import { adminApi } from "@/api/admin";
 import TabView, { type Tab } from "../admin/TabView";
 import JsonApiCard from "../admin/JsonApiCard";
 import DualEditor from "../admin/editor/DualEditor";
-import SoftphonePage from "../softphone/SoftphonePage";
+import CallSettingsPanel from "./CallSettings";
+import OutboundCall from "./OutboundCall";
+import InboundRouting from "./InboundRouting";
+import LiveEvents from "./LiveEvents";
 import {
   AGENT_SPEC,
   GROUP_SPEC,
@@ -37,6 +40,26 @@ const wiredCard =
 
 const TABS: Tab[] = [
   {
+    key: "call-settings",
+    label: "Call Settings",
+    render: () => <CallSettingsPanel />,
+  },
+  {
+    key: "inbound",
+    label: "Inbound Routing",
+    render: () => <InboundRouting />,
+  },
+  {
+    key: "outbound",
+    label: "Outbound Call",
+    render: () => <OutboundCall />,
+  },
+  {
+    key: "live-events",
+    label: "Live Events",
+    render: () => <LiveEvents />,
+  },
+  {
     key: "pcc-token",
     label: "PCC Token",
     render: () => (
@@ -48,23 +71,6 @@ const TABS: Tab[] = [
         initialBody="{}"
         onSend={() => adminApi.pccToken()}
       />
-    ),
-  },
-  {
-    key: "callout",
-    label: "Callout (agent → customer)",
-    render: wiredCard(
-      "Outbound: route to agent then customer",
-      "POST",
-      "/admin/pcc/calls/callout",
-      {
-        agentUserId: "AGENT_USER_ID",
-        toAgentFromNumberDisplay: "STRINGEE_NUMBER",
-        toAgentFromNumberDisplayAlias: "STRINGEE_NUMBER",
-        toCustomerFromNumber: "STRINGEE_NUMBER",
-        customerNumber: "DESTINATION_NUMBER",
-      },
-      (b) => adminApi.callout(b),
     ),
   },
   { key: "agent", label: "Agent", render: () => <DualEditor spec={AGENT_SPEC} /> },
@@ -122,7 +128,6 @@ const TABS: Tab[] = [
       },
     ),
   },
-  { key: "softphone", label: "Softphone", render: () => <SoftphonePage /> },
 ];
 
 const PCCPage: FC = () => (

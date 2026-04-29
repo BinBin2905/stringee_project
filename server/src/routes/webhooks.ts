@@ -62,7 +62,7 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
     async (req, reply) => {
       const { from, to, fromInternal, userId } = req.query;
       const routedUser = getFirstFreeUser() ?? userId;
-      setUserBusy(routedUser, BUSY_TTL_SECONDS);
+      if (routedUser) setUserBusy(routedUser, BUSY_TTL_SECONDS);
       return reply.send(buildScco(from, to, fromInternal, routedUser));
     },
   );
@@ -71,7 +71,7 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
     env.eventUrl,
     async (req, reply) => {
       const { call_status, to } = req.body ?? {};
-      if (call_status === "end" && to?.number) setUserFree(to.number);
+      if (call_status === "ended" && to?.number) setUserFree(to.number);
       return reply.send({ status: "ok" });
     },
   );
