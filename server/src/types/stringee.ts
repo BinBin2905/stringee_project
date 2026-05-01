@@ -183,6 +183,24 @@ export interface EventWebhookBody {
   start_time?: number;
 }
 
+// Body Stringee POSTs to a `record.eventUrl` after the recording has been
+// uploaded. Distinct from `EventWebhookBody` — this carries the recording
+// URL/metadata, not call status. Register a separate handler so the two
+// payloads don't collide.
+export interface RecordCompletedEvent {
+  call_id?: string;
+  recordingUrl?: string;
+  recordingId?: string;
+  fileSize?: number;
+  format?: RecordFormat;
+  duration?: number;
+  start_time?: number;
+  end_time?: number;
+  from?: Party;
+  to?: Party;
+  project_id?: number;
+}
+
 // `connect_failed` payload Stringee POSTs to onFailEventUrl when the
 // connect leg fails.
 export interface ConnectFailEvent {

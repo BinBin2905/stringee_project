@@ -4,7 +4,7 @@ import type { PccBaseResponse, PccListQuery } from "./common.js";
 export type AgentRoutingType = 1 | 2;
 
 // 0 = in call, 1 = not in call, 2 = after-call work.
-export type AgentSystemStatus = 0 | 1 | 2;
+export type AgentSystemStatus = "On call" | "Available" | "ACW";
 
 export interface Agent {
   id: string;

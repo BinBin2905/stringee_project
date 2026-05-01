@@ -1,7 +1,7 @@
 // Typings for the Stringee Softphone widget. The widget loads from
 // static.stringee.com and exposes a single global object that owns the
-// entire call UI; we only need to configure it, connect, and react to
-// the lifecycle events documented at developer.stringee.com.
+// entire call UI; we configure it, connect, and react to the lifecycle
+// events documented at developer.stringee.com.
 
 export type StringeeSoftPhoneShowMode = "full" | "min" | "none";
 export type StringeeSoftPhoneArrowDisplay = "top" | "bottom" | "none";
@@ -9,6 +9,11 @@ export type StringeeSoftPhoneArrowDisplay = "top" | "bottom" | "none";
 export interface StringeeSoftPhoneFromNumber {
   alias: string;
   number: string;
+}
+
+export interface StringeeSoftPhoneVideoSize {
+  width: number;
+  height: number;
 }
 
 export interface StringeeSoftPhoneConfig {
@@ -20,18 +25,69 @@ export interface StringeeSoftPhoneConfig {
   arrowLeft?: number;
   arrowDisplay?: StringeeSoftPhoneArrowDisplay;
   fromNumbers?: StringeeSoftPhoneFromNumber[];
+  // Video — when true the widget exposes a video toggle on its dialpad.
+  enableVideoCall?: boolean;
+  iframeVideoCallSize?: StringeeSoftPhoneVideoSize;
+  // When true, the widget asks the user to pick voice vs video at dial time.
+  askCallTypeWhenMakeCall?: boolean;
+  // Optional DOM container to mount the widget into. Defaults to body.
+  appendToElement?: HTMLElement | string;
 }
 
+// Full event surface per the Stringee Web Softphone blog post. Each handler
+// receives whatever the SDK fires (mostly opaque; we log + toast).
+export type StringeeSoftPhoneSignalingState =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "failed"
+  | string;
+
+export interface StringeeSoftPhoneIncomingCall {
+  fromNumber?: string;
+  toNumber?: string;
+  callId?: string;
+  isVideoCall?: boolean;
+  customDataFromYourServer?: string;
+  [k: string]: unknown;
+}
+
+export interface StringeeSoftPhoneCallContext {
+  callId?: string;
+  fromNumber?: string;
+  toNumber?: string;
+  [k: string]: unknown;
+}
+
+// Events the widget fires. Listed in the same order as the developer blog
+// (https://stringee.com/vi/blog/post/stringee-web-softphone). Handlers all
+// share the same shape `(payload?) => void` for simplicity — the SDK
+// passes inconsistent argument lists across versions.
+export type StringeeSoftPhoneEvent =
+  | "displayModeChange"
+  | "requestNewToken"
+  | "beforeMakeCall"
+  | "incomingCall"
+  | "makeOutgoingCallBtnClick"
+  | "answerIncomingCallBtnClick"
+  | "endCallBtnClick"
+  | "declineIncomingCallBtnClick"
+  | "addlocalstream"
+  | "addremotestream"
+  | "signalingstate"
+  | "authen"
+  | "disconnect"
+  | "callingScreenHide"
+  | "incomingScreenHide";
+
+// One unified `on` signature (the SDK is loose about handler shape — we
+// keep it permissive and narrow at the call site if we care about typing).
 export interface StringeeSoftPhone {
   init(config: StringeeSoftPhoneConfig): void;
   config(partial: Partial<StringeeSoftPhoneConfig>): void;
   connect(accessToken: string): void;
   disconnect?(): void;
-  on(
-    event: "displayModeChange",
-    handler: (mode: StringeeSoftPhoneShowMode) => void,
-  ): void;
-  on(event: "requestNewToken", handler: () => void): void;
+  on(event: StringeeSoftPhoneEvent, handler: (...args: unknown[]) => void): void;
 }
 
 declare global {
