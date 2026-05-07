@@ -47,7 +47,7 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
   // We append to the in-memory ring buffer so the admin UI can render a
   // live event feed via /admin/pcc/events/recent.
   fastify.post<{ Body: PccEventBody }>(env.pccEventUrl, async (req, reply) => {
-    console.log(req.body);
+    console.log("pcc-event:", req.body);
     eventLog.push(req.body ?? {});
     return reply.send({ status: "ok" });
   });
@@ -57,7 +57,26 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
     env.pccCalloutAnswerUrl,
     async (req, reply) => {
       console.log("pcc-callout-answer:", req.query);
-      return reply.send(buildCalloutScco(req.query));
+
+      if (req.query.from.includes("ADAPTIVE")) {
+        console.log("Adaptive routing for", req.query.to);
+        console.log(pickHotline(req.query.to));
+        const scco = [
+          {
+            action: "connect",
+            from: {
+              type: "internal",
+              number: pickHotline(req.query.to).hotlineNumber,
+              alias: pickHotline(req.query.to).hotlineCarrier,
+            },
+            to: { type: "external", number: req.query.to, alias: req.query.to },
+            peerToPeerCall: false,
+          },
+        ];
+        console.log("SCCO:", scco);
+        return reply.send(scco);
+      }
+      // return reply.send(buildCalloutScco(req.query));
     },
   );
 
@@ -96,3 +115,61 @@ export default async function webhookRoutes(fastify: FastifyInstance) {
     return reply.send({ status: "ok" });
   });
 }
+
+function pickHotline(toPhone: string) {
+  const carrier = detectCarrier(toPhone);
+  const carrierForHotline = HOTLINE[carrier] ? carrier : FALLBACK_CARRIER;
+  return {
+    detectedCarrier: carrier,
+    hotlineCarrier: carrierForHotline,
+    hotlineNumber: HOTLINE[carrierForHotline],
+    isOnNetwork: carrier === carrierForHotline && carrier !== "unknown",
+  };
+}
+
+function detectCarrier(phone: string) {
+  const normalized = normalizePhone(phone);
+  const prefix = normalized.substring(0, 3);
+  for (const [carrier, prefixes] of Object.entries(CARRIER_PREFIX)) {
+    if (prefixes.includes(prefix)) return carrier;
+  }
+  return "unknown";
+}
+
+function normalizePhone(phone: string) {
+  let n = String(phone || "").replace(/[^0-9]/g, "");
+  if (n.startsWith("84")) n = "0" + n.slice(2);
+  if (!n.startsWith("0")) n = "0" + n;
+  return n;
+}
+
+const CARRIER_PREFIX = {
+  viettel: [
+    "086",
+    "096",
+    "097",
+    "098",
+    "032",
+    "033",
+    "034",
+    "035",
+    "036",
+    "037",
+    "038",
+    "039",
+  ],
+  mobifone: ["089", "090", "093", "070", "076", "077", "078", "079"],
+  vinaphone: ["088", "091", "094", "081", "082", "083", "084", "085"],
+  vietnamobile: ["092", "052", "056", "058"],
+  gmobile: ["099", "059"],
+};
+
+// Hotline Stringee đã mua cho từng nhà mạng (E.164, không +)
+const HOTLINE: { [key: string]: string } = {
+  viettel: process.env.HOTLINE_VIETTEL || "84961234567",
+  mobifone: process.env.HOTLINE_MOBIFONE || "84901234567",
+  vinaphone: process.env.HOTLINE_VINAPHONE || "84911234567",
+};
+
+// Fallback khi không nhận diện được carrier
+const FALLBACK_CARRIER: string = "viettel";
